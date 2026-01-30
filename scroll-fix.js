@@ -234,32 +234,68 @@
   }
 
   function applyTextPosition(bottomValue) {
-    // Find info sections and apply position
-    const infoSections = document.querySelectorAll(
-      '[class*="absolute"][class*="bottom-"][class*="left-"][class*="z-30"], ' +
-        '[class*="absolute"][class*="bottom-"][class*="left-"][class*="flex-col"], ' +
-        '[class*="pointer-events-auto"][class*="max-w-"]',
+    // Target the specific info container class pattern found in the compiled code:
+    // "absolute bottom-4 left-4 right-16 z-30 flex flex-col gap-2 pointer-events-none"
+
+    // Method 1: Find by exact class pattern
+    const infoContainers = document.querySelectorAll(
+      '[class*="bottom-4"][class*="left-4"][class*="z-30"]',
     );
 
-    infoSections.forEach((section) => {
-      // Only target sections that contain title/description, not the poster bar
+    infoContainers.forEach((container) => {
+      // Make sure it's not the poster bar (which has overflow-x-auto)
       if (
-        section.querySelector("h2") ||
-        section.querySelector('[class*="line-clamp"]')
+        !container.className.includes("overflow-x-auto") &&
+        !container.querySelector('[class*="overflow-x-auto"]')
       ) {
-        section.style.setProperty("bottom", bottomValue, "important");
+        container.style.setProperty("bottom", bottomValue, "important");
+        console.log(
+          "[MovieShows] Applied text position to:",
+          container.className.substring(0, 50),
+        );
       }
     });
 
-    // Also try targeting by content - find elements containing movie info
-    const allAbsolute = document.querySelectorAll('[class*="absolute"]');
-    allAbsolute.forEach((el) => {
-      const hasTitle = el.querySelector("h2");
-      const hasBadges = el.querySelector('[class*="rounded"][class*="bg-"]');
-      const isNotPosterBar = !el.querySelector('[class*="overflow-x-auto"]');
+    // Method 2: Find the description container by its unique class
+    const descContainers = document.querySelectorAll('[class*="group/desc"]');
+    descContainers.forEach((desc) => {
+      // Find parent that has absolute positioning
+      let parent = desc.parentElement;
+      for (let i = 0; i < 5 && parent; i++) {
+        if (parent.className && parent.className.includes("absolute")) {
+          parent.style.setProperty("bottom", bottomValue, "important");
+          console.log(
+            "[MovieShows] Applied text position via group/desc parent",
+          );
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    });
 
-      if (hasTitle && hasBadges && isNotPosterBar) {
+    // Method 3: Find any element with pointer-events-none that contains h2 or text
+    const allElements = document.querySelectorAll(
+      '[class*="pointer-events-none"]',
+    );
+    allElements.forEach((el) => {
+      if (el.querySelector("h2") && el.className.includes("absolute")) {
         el.style.setProperty("bottom", bottomValue, "important");
+        console.log(
+          "[MovieShows] Applied text position via pointer-events-none",
+        );
+      }
+    });
+
+    // Method 4: Direct search for the flex-col container with movie info
+    const flexCols = document.querySelectorAll(
+      '[class*="flex-col"][class*="gap-"]',
+    );
+    flexCols.forEach((el) => {
+      const hasH2 = el.querySelector("h2");
+      const parent = el.closest('[class*="absolute"]');
+      if (hasH2 && parent && !parent.className.includes("overflow-x")) {
+        parent.style.setProperty("bottom", bottomValue, "important");
+        console.log("[MovieShows] Applied text position via flex-col parent");
       }
     });
   }
@@ -435,17 +471,25 @@
       }
 
       /* Fix info section to not overlap with poster carousel */
-      /* The info section (title, badges, description) needs to be above the poster bar */
-      [class*="absolute"][class*="bottom-"][class*="left-"][class*="z-30"],
-      [class*="absolute"][class*="bottom-"][class*="left-"][class*="flex-col"] {
-        bottom: 180px !important;
-        max-width: calc(100% - 140px) !important;
+      /* Target the exact class pattern: "absolute bottom-4 left-4 right-16 z-30 flex flex-col" */
+      [class*="bottom-4"][class*="left-4"][class*="z-30"][class*="flex-col"] {
+        bottom: 200px !important;
+        z-index: 40 !important;
+      }
+
+      /* Also target by pointer-events-none which wraps the info */
+      [class*="absolute"][class*="pointer-events-none"][class*="flex-col"] {
+        bottom: 200px !important;
+      }
+
+      /* Target group/desc container */
+      [class*="group/desc"] {
+        position: relative !important;
         z-index: 40 !important;
       }
 
       /* Make sure the poster carousel stays at the bottom */
-      [class*="absolute"][class*="bottom-0"][class*="left-0"][class*="right-0"],
-      [class*="flex"][class*="overflow-x-auto"] {
+      [class*="overflow-x-auto"] {
         z-index: 30 !important;
       }
 
