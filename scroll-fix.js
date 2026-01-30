@@ -8,7 +8,16 @@
   let currentIndex = -1;
   let isScrolling = false;
   let scrollTimeout = null;
+  let currentPlayerSize = "large";
   const SCROLL_COOLDOWN = 500;
+
+  // Player size configurations
+  const PLAYER_SIZES = {
+    small: { height: "25vh", minHeight: "180px", maxHeight: "220px" },
+    medium: { height: "40vh", minHeight: "280px", maxHeight: "350px" },
+    large: { height: "55vh", minHeight: "380px", maxHeight: "480px" },
+    full: { height: "75vh", minHeight: "500px", maxHeight: "85vh" },
+  };
 
   // ========== PLAYER SIZE CONTROL ==========
 
@@ -40,14 +49,9 @@
   }
 
   function setPlayerSize(size) {
-    document.body.classList.remove(
-      "player-small",
-      "player-medium",
-      "player-large",
-      "player-full",
-    );
-    document.body.classList.add(`player-${size}`);
+    currentPlayerSize = size;
 
+    // Update button states
     const control = document.getElementById("player-size-control");
     if (control) {
       control.querySelectorAll("button").forEach((btn) => {
@@ -55,7 +59,46 @@
       });
     }
 
+    // Apply size to all iframes immediately
+    applyPlayerSizeToAll();
+
     console.log("[MovieShows] Player size:", size);
+  }
+
+  function applyPlayerSizeToAll() {
+    const config = PLAYER_SIZES[currentPlayerSize];
+    if (!config) return;
+
+    // Find ALL iframes on the page
+    const iframes = document.querySelectorAll("iframe");
+    iframes.forEach((iframe) => {
+      const src = iframe.src || "";
+      if (src.includes("youtube")) {
+        applyStyleToElement(iframe, config);
+
+        // Also style parent containers up the chain
+        let parent = iframe.parentElement;
+        for (let i = 0; i < 6 && parent; i++) {
+          const className = parent.className || "";
+          if (
+            className.includes("relative") ||
+            className.includes("player") ||
+            className.includes("aspect") ||
+            (className.includes("w-full") && className.includes("h-full"))
+          ) {
+            applyStyleToElement(parent, config);
+          }
+          parent = parent.parentElement;
+        }
+      }
+    });
+  }
+
+  function applyStyleToElement(el, config) {
+    el.style.height = config.height;
+    el.style.minHeight = config.minHeight;
+    el.style.maxHeight = config.maxHeight;
+    el.style.transition = "height 0.3s ease";
   }
 
   function injectStyles() {
@@ -85,10 +128,10 @@
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
         color: #aaa;
-        padding: 4px 10px;
+        padding: 4px 12px;
         border-radius: 10px;
         cursor: pointer;
-        font-size: 11px;
+        font-size: 12px;
         font-weight: bold;
         transition: all 0.2s;
       }
@@ -104,112 +147,21 @@
         color: black;
       }
 
-      /* ===== FIX: Add padding-top to push content down so player is visible ===== */
-
-      /* Small - Add padding to push video into view */
-      .player-small .snap-center {
-        padding-top: 60px !important;
+      /* Ensure info section is visible */
+      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"],
+      [class*="absolute"][class*="bottom-"][class*="left-"][class*="flex-col"] {
+        max-width: calc(100% - 120px) !important;
       }
 
-      .player-small iframe[src*="youtube"] {
-        height: 25vh !important;
-        max-height: 200px !important;
-        min-height: 150px !important;
-      }
-
-      /* Medium */
-      .player-medium .snap-center {
-        padding-top: 50px !important;
-      }
-
-      .player-medium iframe[src*="youtube"] {
-        height: 35vh !important;
-        max-height: 300px !important;
-        min-height: 200px !important;
-      }
-
-      /* Large (default) */
-      .player-large .snap-center {
-        padding-top: 40px !important;
-      }
-
-      .player-large iframe[src*="youtube"] {
-        height: 45vh !important;
-        max-height: 400px !important;
-        min-height: 280px !important;
-      }
-
-      /* Full - minimal padding, more video */
-      .player-full .snap-center {
-        padding-top: 30px !important;
-      }
-
-      .player-full iframe[src*="youtube"] {
-        height: 60vh !important;
-        max-height: 70vh !important;
-        min-height: 400px !important;
-      }
-
-      /* ===== Ensure title/info section is always visible ===== */
-
-      /* The info section at bottom-left */
-      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
-        position: relative !important;
-        bottom: auto !important;
-        left: auto !important;
-        padding: 12px 16px !important;
-        background: linear-gradient(to top, rgba(0,0,0,0.9), transparent) !important;
-        margin-top: -80px !important;
-        z-index: 40 !important;
-      }
-
-      /* For Full mode - show a compact info bar */
-      .player-full [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
-        margin-top: -60px !important;
-        padding: 8px 16px !important;
-      }
-
-      /* Title should always be visible */
+      /* Title styling */
       h2[class*="text-2xl"],
-      .text-2xl.font-bold {
-        font-size: 1.25rem !important;
-        margin-bottom: 4px !important;
+      h2[class*="font-bold"] {
+        text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
       }
 
-      .player-full h2[class*="text-2xl"],
-      .player-full .text-2xl.font-bold {
-        font-size: 1.1rem !important;
-      }
-
-      /* Description text */
+      /* Description */
       [class*="line-clamp"] {
-        -webkit-line-clamp: 3 !important;
-        line-clamp: 3 !important;
-        font-size: 0.85rem !important;
-      }
-
-      .player-full [class*="line-clamp"] {
-        -webkit-line-clamp: 2 !important;
-        line-clamp: 2 !important;
-        font-size: 0.8rem !important;
-      }
-
-      .player-small [class*="line-clamp"] {
-        -webkit-line-clamp: 4 !important;
-        line-clamp: 4 !important;
-      }
-
-      /* Badge row */
-      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="IMDb"]),
-      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="bg-yellow"]) {
-        flex-wrap: wrap !important;
-        gap: 4px !important;
-        margin-bottom: 4px !important;
-      }
-
-      /* Genre tags */
-      [class*="flex"][class*="flex-wrap"][class*="gap-2"]:has([class*="rounded-full"]) {
-        margin-top: 4px !important;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
       }
     `;
 
@@ -284,6 +236,10 @@
     });
 
     currentIndex = index;
+
+    // Re-apply player size after scroll (new iframe may have loaded)
+    setTimeout(applyPlayerSizeToAll, 300);
+
     console.log("[MovieShows] Scrolled to video", index + 1);
   }
 
@@ -293,6 +249,8 @@
     const newIndex = getCurrentVisibleIndex();
     if (newIndex !== currentIndex) {
       currentIndex = newIndex;
+      // Apply size to any new iframes
+      setTimeout(applyPlayerSizeToAll, 100);
     }
   }
 
@@ -472,6 +430,24 @@
     }
   }
 
+  // Watch for DOM changes and apply player size to new iframes
+  function setupIframeObserver() {
+    const observer = new MutationObserver((mutations) => {
+      let hasNewNodes = false;
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length > 0) {
+          hasNewNodes = true;
+          break;
+        }
+      }
+      if (hasNewNodes) {
+        setTimeout(applyPlayerSizeToAll, 200);
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   function init() {
     if (initialized) return;
 
@@ -479,6 +455,7 @@
 
     injectStyles();
     createPlayerSizeControl();
+    setupIframeObserver();
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
@@ -503,6 +480,13 @@
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
     currentIndex = getCurrentVisibleIndex();
+
+    // Apply initial player size
+    const savedSize = localStorage.getItem("movieshows-player-size") || "large";
+    setPlayerSize(savedSize);
+
+    // Keep applying size periodically to catch new iframes
+    setInterval(applyPlayerSizeToAll, 2000);
 
     setTimeout(() => {
       if (!clickQueuePlayButton()) {
