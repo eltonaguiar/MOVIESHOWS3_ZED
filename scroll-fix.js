@@ -331,11 +331,10 @@
             break;
           }
 
-          // Force height on this container
+          // Force height on this container (but don't change overflow - it breaks scrolling)
           parent.style.setProperty("height", heightPx, "important");
           parent.style.setProperty("min-height", heightPx, "important");
           parent.style.setProperty("max-height", "none", "important");
-          parent.style.setProperty("overflow", "visible", "important");
 
           parent = parent.parentElement;
           depth++;
