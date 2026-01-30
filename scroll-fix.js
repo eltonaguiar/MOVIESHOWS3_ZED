@@ -11,7 +11,164 @@
   let scrollTimeout = null;
   const SCROLL_COOLDOWN = 500;
 
-  // Find the main scroll container with snap-y
+  // ========== PLAYER SIZE CONTROL ==========
+
+  function createPlayerSizeControl() {
+    // Check if already exists
+    if (document.getElementById("player-size-control")) return;
+
+    const control = document.createElement("div");
+    control.id = "player-size-control";
+    control.innerHTML = `
+      <span style="color: #888; font-size: 11px; margin-right: 8px;">Player Size:</span>
+      <button data-size="small">S</button>
+      <button data-size="medium" class="active">M</button>
+      <button data-size="large">L</button>
+      <button data-size="fullscreen">XL</button>
+    `;
+
+    document.body.appendChild(control);
+
+    // Load saved preference
+    const savedSize =
+      localStorage.getItem("movieshows-player-size") || "medium";
+    setPlayerSize(savedSize);
+
+    // Add click handlers
+    control.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const size = btn.dataset.size;
+        setPlayerSize(size);
+        localStorage.setItem("movieshows-player-size", size);
+      });
+    });
+
+    console.log("[MovieShows] Player size control added");
+  }
+
+  function setPlayerSize(size) {
+    // Remove all size classes
+    document.body.classList.remove(
+      "player-small",
+      "player-medium",
+      "player-large",
+      "player-fullscreen",
+    );
+    // Add the selected size class
+    document.body.classList.add(`player-${size}`);
+
+    // Update button states
+    const control = document.getElementById("player-size-control");
+    if (control) {
+      control.querySelectorAll("button").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.size === size);
+      });
+    }
+
+    console.log("[MovieShows] Player size set to:", size);
+  }
+
+  function injectStyles() {
+    if (document.getElementById("movieshows-custom-styles")) return;
+
+    const style = document.createElement("style");
+    style.id = "movieshows-custom-styles";
+    style.textContent = `
+      /* Player size control button styling */
+      #player-size-control {
+        position: fixed;
+        top: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(0, 0, 0, 0.85);
+        padding: 6px 14px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+
+      #player-size-control button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #aaa;
+        padding: 4px 10px;
+        border-radius: 10px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+
+      #player-size-control button:hover {
+        background: rgba(255, 255, 255, 0.2);
+        color: white;
+      }
+
+      #player-size-control button.active {
+        background: #22c55e;
+        border-color: #22c55e;
+        color: black;
+      }
+
+      /* Fix text overlap - ensure description area has proper layout */
+      .player-small .snap-center > div:first-child {
+        max-height: 35vh !important;
+      }
+
+      .player-medium .snap-center > div:first-child {
+        max-height: 50vh !important;
+      }
+
+      .player-large .snap-center > div:first-child {
+        max-height: 65vh !important;
+      }
+
+      .player-fullscreen .snap-center > div:first-child {
+        max-height: 80vh !important;
+      }
+
+      /* Ensure the info section at bottom doesn't overlap */
+      [class*="absolute"][class*="bottom-4"][class*="left-4"] {
+        max-height: 35vh !important;
+        overflow-y: auto !important;
+        padding-bottom: 10px !important;
+      }
+
+      /* Make text more readable */
+      [class*="line-clamp-3"] {
+        -webkit-line-clamp: 4 !important;
+        line-clamp: 4 !important;
+      }
+
+      /* Adjust for smaller player - move info up */
+      .player-small [class*="absolute"][class*="bottom-4"][class*="left-4"] {
+        bottom: 200px !important;
+      }
+
+      /* Adjust for larger player - keep info at bottom */
+      .player-large [class*="absolute"][class*="bottom-4"][class*="left-4"],
+      .player-fullscreen [class*="absolute"][class*="bottom-4"][class*="left-4"] {
+        bottom: 80px !important;
+        max-height: 25vh !important;
+      }
+
+      /* Poster carousel should not overlap */
+      [class*="flex"][class*="gap-2"][class*="overflow-x"] {
+        position: relative !important;
+        z-index: 10 !important;
+      }
+    `;
+
+    document.head.appendChild(style);
+    console.log("[MovieShows] Custom styles injected");
+  }
+
+  // ========== SCROLL NAVIGATION ==========
+
   function findScrollContainer() {
     const containers = document.querySelectorAll(
       '[class*="overflow-y-scroll"]',
@@ -28,7 +185,6 @@
     return null;
   }
 
-  // Find all video slides (snap-center elements)
   function findVideoSlides() {
     if (!scrollContainer) return [];
     return Array.from(
@@ -36,11 +192,9 @@
     );
   }
 
-  // Find and click the Play button in the Queue panel (right side)
   function clickQueuePlayButton() {
     console.log("[MovieShows] Looking for Queue play button...");
 
-    // Find the green "Play Queue" button
     const allButtons = document.querySelectorAll("button");
     for (const btn of allButtons) {
       if (btn.textContent?.includes("Play Queue")) {
@@ -50,7 +204,6 @@
       }
     }
 
-    // Alternative: look for green button with play icon
     const greenPlayBtn = document.querySelector('button[class*="bg-green"]');
     if (greenPlayBtn) {
       console.log("[MovieShows] Found green Play button, clicking...");
@@ -61,15 +214,12 @@
     return false;
   }
 
-  // Get the currently visible slide based on scroll position
-  // This mirrors how the React app calculates the index
   function getCurrentVisibleIndex() {
     if (!scrollContainer || videoSlides.length === 0) return 0;
 
     const slideHeight = scrollContainer.clientHeight;
     if (slideHeight <= 0) return 0;
 
-    // This matches the React calculation: Math.round(scrollTop / clientHeight)
     const index = Math.max(
       0,
       Math.min(
@@ -80,8 +230,6 @@
     return index;
   }
 
-  // Scroll to a specific slide by setting scrollTop directly
-  // This triggers the React scroll handler which updates the active video
   function scrollToSlide(index) {
     if (!scrollContainer || index < 0 || index >= videoSlides.length) return;
 
@@ -95,7 +243,6 @@
       videoSlides.length,
     );
 
-    // Use scrollTo with smooth behavior - this will trigger the React scroll handler
     scrollContainer.scrollTo({
       top: targetScrollTop,
       behavior: "smooth",
@@ -104,7 +251,6 @@
     currentIndex = index;
   }
 
-  // Handle scroll events on the container to track current position
   function handleScroll() {
     if (isScrolling) return;
 
@@ -115,12 +261,12 @@
     }
   }
 
-  // Handle wheel events for controlled scrolling
   function handleWheel(e) {
     const target = e.target;
 
-    // Don't intercept scrolling in the queue panel or other scrollable areas
+    // Don't intercept scrolling in control areas
     if (
+      target.closest("#player-size-control") ||
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
       target.closest('[class*="custom-scrollbar"]') ||
       target.closest('[class*="Queue"]') ||
@@ -137,7 +283,6 @@
       return;
     }
 
-    // Only respond to significant scroll
     if (Math.abs(e.deltaY) < 20) return;
 
     e.preventDefault();
@@ -155,13 +300,11 @@
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         isScrolling = false;
-        // Re-sync current index after scroll completes
         currentIndex = getCurrentVisibleIndex();
       }, SCROLL_COOLDOWN);
     }
   }
 
-  // Handle keyboard navigation
   function handleKeydown(e) {
     if (
       e.target.tagName === "INPUT" ||
@@ -207,6 +350,19 @@
           }, SCROLL_COOLDOWN);
         }
         return;
+      // Player size shortcuts
+      case "1":
+        if (!e.target.closest("input, textarea")) setPlayerSize("small");
+        return;
+      case "2":
+        if (!e.target.closest("input, textarea")) setPlayerSize("medium");
+        return;
+      case "3":
+        if (!e.target.closest("input, textarea")) setPlayerSize("large");
+        return;
+      case "4":
+        if (!e.target.closest("input, textarea")) setPlayerSize("fullscreen");
+        return;
     }
 
     if (direction === 0) return;
@@ -230,7 +386,6 @@
     }
   }
 
-  // Touch handling
   let touchStartY = 0;
   let touchStartTime = 0;
 
@@ -246,7 +401,6 @@
     const deltaY = touchStartY - touchEndY;
     const duration = Date.now() - touchStartTime;
 
-    // Quick swipe detection
     if (duration < 300 && Math.abs(deltaY) > 50) {
       const direction = deltaY > 0 ? 1 : -1;
       const newIndex = Math.max(
@@ -267,11 +421,14 @@
     }
   }
 
-  // Initialize everything
   function init() {
     if (initialized) return;
 
-    console.log("[MovieShows] Initializing scroll fix...");
+    console.log("[MovieShows] Initializing...");
+
+    // Inject styles and create player size control first
+    injectStyles();
+    createPlayerSizeControl();
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
@@ -292,9 +449,7 @@
       videoSlides.length,
       "videos",
     );
-    console.log("[MovieShows] Container height:", scrollContainer.clientHeight);
 
-    // Add event listeners
     document.addEventListener("wheel", handleWheel, { passive: false });
     document.addEventListener("keydown", handleKeydown);
     document.addEventListener("touchstart", handleTouchStart, {
@@ -302,32 +457,24 @@
     });
     document.addEventListener("touchend", handleTouchEnd, { passive: true });
 
-    // Track native scroll on the container
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
-    // Get initial position
     currentIndex = getCurrentVisibleIndex();
-    console.log("[MovieShows] Initial video index:", currentIndex);
 
-    // Auto-click the Play Queue button to activate the player
     setTimeout(() => {
       if (clickQueuePlayButton()) {
         console.log("[MovieShows] Auto-started queue playback");
       } else {
-        console.log("[MovieShows] Play Queue button not found, will retry...");
-        // Retry after more time for React to render
         setTimeout(clickQueuePlayButton, 2000);
       }
     }, 2000);
 
     initialized = true;
-    console.log("[MovieShows] Scroll navigation ready!");
-    console.log(
-      "[MovieShows] Controls: Mouse wheel, Arrow Up/Down, J/K, Home/End, or swipe",
-    );
+    console.log("[MovieShows] Ready! Controls:");
+    console.log("  - Scroll: Mouse wheel, Arrow Up/Down, J/K, swipe");
+    console.log("  - Player size: 1/2/3/4 keys or click S/M/L/XL buttons");
   }
 
-  // Watch for DOM changes (React updates)
   function setupMutationObserver() {
     const observer = new MutationObserver(() => {
       if (!initialized) {
@@ -336,22 +483,13 @@
         const newSlides = findVideoSlides();
         if (newSlides.length !== videoSlides.length) {
           videoSlides = newSlides;
-          console.log(
-            "[MovieShows] Video list updated:",
-            videoSlides.length,
-            "videos",
-          );
         }
       }
     });
 
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    });
+    observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  // Start
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       setupMutationObserver();
