@@ -72,49 +72,29 @@
     const config = PLAYER_SIZES[currentPlayerSize];
     if (!config) return;
 
-    // Find ALL iframes on the page
+    // Find ALL YouTube iframes on the page and ONLY style them
     const iframes = document.querySelectorAll("iframe");
     iframes.forEach((iframe) => {
       const src = iframe.src || "";
       if (src.includes("youtube")) {
+        // Apply size to the iframe itself
         applyStyleToElement(iframe, config);
 
-        // Walk up the DOM tree and style ALL parent containers
-        let parent = iframe.parentElement;
-        for (let i = 0; i < 10 && parent; i++) {
+        // Also apply to immediate parent if it's a simple wrapper (not a layout container)
+        const parent = iframe.parentElement;
+        if (parent) {
           const className = parent.className || "";
-
-          // Target the main player container classes we found in the compiled code
+          // Only style parent if it looks like a direct player wrapper (contains shadow styling)
+          // and is NOT a major layout container (no h-screen, overflow-y-scroll, snap-y)
           if (
-            className.includes("relative") &&
-            (className.includes("w-full") ||
-              className.includes("bg-black") ||
-              className.includes("shadow"))
+            className.includes("shadow") &&
+            !className.includes("h-screen") &&
+            !className.includes("overflow-y-scroll") &&
+            !className.includes("snap-y")
           ) {
             applyStyleToElement(parent, config);
           }
-
-          // Also catch any container with h-full that wraps the iframe
-          if (className.includes("h-full") || className.includes("h-screen")) {
-            applyStyleToElement(parent, config);
-          }
-
-          parent = parent.parentElement;
         }
-      }
-    });
-
-    // Also directly target the player container by its distinctive class pattern
-    const playerContainers = document.querySelectorAll(
-      '[class*="relative"][class*="w-full"][class*="bg-black"]',
-    );
-    playerContainers.forEach((container) => {
-      // Only apply to containers that likely hold the video
-      if (
-        container.querySelector("iframe") ||
-        container.className.includes("shadow")
-      ) {
-        applyStyleToElement(container, config);
       }
     });
   }
@@ -172,30 +152,26 @@
         color: black;
       }
 
-      /* CSS-based player sizing as backup - data attribute approach */
-      body[data-player-size="small"] iframe[src*="youtube"],
-      body[data-player-size="small"] [class*="relative"][class*="bg-black"] {
+      /* CSS-based player sizing - ONLY target YouTube iframes */
+      body[data-player-size="small"] iframe[src*="youtube"] {
         height: 30vh !important;
         min-height: 200px !important;
         max-height: 280px !important;
       }
 
-      body[data-player-size="medium"] iframe[src*="youtube"],
-      body[data-player-size="medium"] [class*="relative"][class*="bg-black"] {
+      body[data-player-size="medium"] iframe[src*="youtube"] {
         height: 45vh !important;
         min-height: 320px !important;
         max-height: 420px !important;
       }
 
-      body[data-player-size="large"] iframe[src*="youtube"],
-      body[data-player-size="large"] [class*="relative"][class*="bg-black"] {
+      body[data-player-size="large"] iframe[src*="youtube"] {
         height: 60vh !important;
         min-height: 450px !important;
         max-height: 550px !important;
       }
 
-      body[data-player-size="full"] iframe[src*="youtube"],
-      body[data-player-size="full"] [class*="relative"][class*="bg-black"] {
+      body[data-player-size="full"] iframe[src*="youtube"] {
         height: 80vh !important;
         min-height: 550px !important;
         max-height: 90vh !important;
