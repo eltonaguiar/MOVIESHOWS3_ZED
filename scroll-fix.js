@@ -13,7 +13,6 @@
 
   // Find the main scroll container with snap-y
   function findScrollContainer() {
-    // The container has: overflow-y-scroll snap-y snap-proximity
     const containers = document.querySelectorAll(
       '[class*="overflow-y-scroll"]',
     );
@@ -22,7 +21,6 @@
         return container;
       }
     }
-    // Fallback: look for the container with snap-center children
     const snapCenterEl = document.querySelector('[class*="snap-center"]');
     if (snapCenterEl && snapCenterEl.parentElement) {
       return snapCenterEl.parentElement;
@@ -36,6 +34,57 @@
     return Array.from(
       scrollContainer.querySelectorAll('[class*="snap-center"]'),
     );
+  }
+
+  // Find and click the "Next Up" button on a slide to queue the video
+  function activateVideo(slide) {
+    if (!slide) return false;
+
+    // Look for the "Next Up" button (has text "Next Up" and a queue icon)
+    const buttons = slide.querySelectorAll("button");
+    for (const btn of buttons) {
+      const text = btn.textContent?.trim().toLowerCase();
+      if (text === "next up" || text === "in queue") {
+        console.log("[MovieShows] Found Next Up button, clicking...");
+        btn.click();
+        return true;
+      }
+    }
+
+    // Alternative: look for any clickable element that might trigger the video
+    const clickable = slide.querySelector('[class*="cursor-pointer"]');
+    if (clickable) {
+      console.log("[MovieShows] Found clickable element, clicking...");
+      clickable.click();
+      return true;
+    }
+
+    return false;
+  }
+
+  // Simulate clicking on a poster thumbnail to select a video
+  function clickPosterThumbnail(index = 0) {
+    // Find the horizontal poster strip/carousel
+    const posterContainers = document.querySelectorAll(
+      '[class*="flex-shrink-0"][class*="cursor-pointer"]',
+    );
+    if (posterContainers.length > index) {
+      console.log("[MovieShows] Clicking poster thumbnail", index);
+      posterContainers[index].click();
+      return true;
+    }
+
+    // Alternative: find poster images in a scrollable row
+    const posters = document.querySelectorAll(
+      '[class*="aspect-"][class*="rounded"][class*="cursor-pointer"]',
+    );
+    if (posters.length > index) {
+      console.log("[MovieShows] Clicking poster", index);
+      posters[index].click();
+      return true;
+    }
+
+    return false;
   }
 
   // Get the currently visible slide based on scroll position
@@ -86,14 +135,11 @@
     const newIndex = getCurrentVisibleIndex();
     if (newIndex !== currentIndex) {
       currentIndex = newIndex;
-      // The scroll-snap already handles the visual snap
-      // We just track the current index
     }
   }
 
   // Handle wheel events for controlled scrolling
   function handleWheel(e) {
-    // Only handle if we're on the main container area
     const target = e.target;
 
     // Don't intercept scrolling in nested scrollable areas
@@ -105,9 +151,7 @@
       return;
     }
 
-    // Check if we're in the scroll container or its children
     if (!scrollContainer?.contains(target) && target !== scrollContainer) {
-      // If not in scroll container, check if scrolling should go to it
       const containerRect = scrollContainer?.getBoundingClientRect();
       if (!containerRect) return;
     }
@@ -117,7 +161,6 @@
       return;
     }
 
-    // Determine scroll direction
     if (Math.abs(e.deltaY) < 10) return;
 
     const direction = e.deltaY > 0 ? 1 : -1;
@@ -140,7 +183,6 @@
 
   // Handle keyboard navigation
   function handleKeydown(e) {
-    // Skip if typing in input
     if (
       e.target.tagName === "INPUT" ||
       e.target.tagName === "TEXTAREA" ||
@@ -156,13 +198,11 @@
       case "ArrowDown":
       case "j":
       case "J":
-      case "ArrowRight":
         direction = 1;
         break;
       case "ArrowUp":
       case "k":
       case "K":
-      case "ArrowLeft":
         direction = -1;
         break;
       case "Home":
@@ -218,7 +258,6 @@
     const deltaX = touchStartX - touchEndX;
     const duration = Date.now() - touchStartTime;
 
-    // Quick swipe detection
     const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
     const delta = isVerticalSwipe ? deltaY : deltaX;
 
@@ -268,6 +307,52 @@
     return observer;
   }
 
+  // Auto-play first video by clicking the "Next Up" then triggering play
+  function autoPlayFirstVideo() {
+    console.log("[MovieShows] Attempting to auto-activate first video...");
+
+    // First, try clicking a poster thumbnail to select a video
+    if (clickPosterThumbnail(0)) {
+      console.log("[MovieShows] Clicked first poster thumbnail");
+
+      // After a short delay, find and click the play area or Next Up button
+      setTimeout(() => {
+        if (videoSlides.length > 0) {
+          const firstSlide = videoSlides[0];
+
+          // Try to find the main video/play area and click it
+          const videoArea =
+            firstSlide.querySelector("iframe") ||
+            firstSlide.querySelector('[class*="aspect-video"]') ||
+            firstSlide.querySelector('[class*="w-full"][class*="h-full"]');
+          if (videoArea) {
+            console.log("[MovieShows] Found video area");
+            // Don't click iframe directly, look for a play button or overlay
+            const playButton =
+              firstSlide.querySelector('button[class*="play"]') ||
+              firstSlide.querySelector('[class*="play"]');
+            if (playButton) {
+              playButton.click();
+            }
+          }
+
+          // Also try clicking the "Next Up" button if it exists
+          activateVideo(firstSlide);
+        }
+      }, 500);
+
+      return true;
+    }
+
+    // Alternative: if no poster thumbnails, try clicking directly on the first slide
+    if (videoSlides.length > 0) {
+      activateVideo(videoSlides[0]);
+      return true;
+    }
+
+    return false;
+  }
+
   // Initialize everything
   function init() {
     if (initialized) return;
@@ -307,21 +392,23 @@
     // Get initial position
     currentIndex = getCurrentVisibleIndex();
 
-    // Auto-scroll to first video if at top
+    // Make sure first video is in view
     if (currentIndex === 0 && videoSlides.length > 0) {
       setTimeout(() => {
         const firstSlide = videoSlides[0];
         if (firstSlide) {
-          // Make sure first video is fully in view
           firstSlide.scrollIntoView({ behavior: "auto", block: "center" });
         }
-      }, 500);
+      }, 300);
     }
+
+    // Auto-activate first video after a delay
+    setTimeout(autoPlayFirstVideo, 1000);
 
     initialized = true;
     console.log("[MovieShows] Scroll navigation ready!");
     console.log(
-      "[MovieShows] Use: Mouse wheel, Arrow keys, J/K, Home/End, or swipe",
+      "[MovieShows] Use: Mouse wheel, Arrow keys (up/down), J/K, Home/End, or swipe",
     );
   }
 
@@ -331,7 +418,6 @@
       if (!initialized) {
         init();
       } else {
-        // Update slides list if DOM changed
         const newSlides = findVideoSlides();
         if (newSlides.length !== videoSlides.length) {
           videoSlides = newSlides;
