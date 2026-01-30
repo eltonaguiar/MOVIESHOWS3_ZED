@@ -1,5 +1,4 @@
 // TikTok-style scroll navigation fix for MovieShows
-// This fixes the broken scroll functionality in the React app
 (function () {
   "use strict";
 
@@ -23,7 +22,7 @@
       <button data-size="small">S</button>
       <button data-size="medium">M</button>
       <button data-size="large" class="active">L</button>
-      <button data-size="fullscreen">Full</button>
+      <button data-size="full">Full</button>
     `;
 
     document.body.appendChild(control);
@@ -38,8 +37,6 @@
         localStorage.setItem("movieshows-player-size", size);
       });
     });
-
-    console.log("[MovieShows] Player size control added");
   }
 
   function setPlayerSize(size) {
@@ -47,7 +44,7 @@
       "player-small",
       "player-medium",
       "player-large",
-      "player-fullscreen",
+      "player-full",
     );
     document.body.classList.add(`player-${size}`);
 
@@ -58,7 +55,44 @@
       });
     }
 
-    console.log("[MovieShows] Player size set to:", size);
+    // Apply size directly to iframes found on page
+    applyPlayerSize(size);
+
+    console.log("[MovieShows] Player size:", size);
+  }
+
+  function applyPlayerSize(size) {
+    const heights = {
+      small: "200px",
+      medium: "300px",
+      large: "400px",
+      full: "70vh",
+    };
+
+    const height = heights[size] || heights.large;
+
+    // Find all YouTube iframes and their containers
+    const iframes = document.querySelectorAll('iframe[src*="youtube"]');
+    iframes.forEach((iframe) => {
+      iframe.style.height = height;
+      iframe.style.maxHeight = height;
+
+      // Also style parent containers
+      let parent = iframe.parentElement;
+      for (let i = 0; i < 5 && parent; i++) {
+        if (
+          parent.className &&
+          (parent.className.includes("group/player") ||
+            (parent.className.includes("relative") &&
+              parent.className.includes("w-full")))
+        ) {
+          parent.style.height = height;
+          parent.style.maxHeight = height;
+          break;
+        }
+        parent = parent.parentElement;
+      }
+    });
   }
 
   function injectStyles() {
@@ -67,7 +101,7 @@
     const style = document.createElement("style");
     style.id = "movieshows-custom-styles";
     style.textContent = `
-      /* Player size control styling */
+      /* Player size control */
       #player-size-control {
         position: fixed;
         top: 8px;
@@ -107,142 +141,57 @@
         color: black;
       }
 
-      /* ===== SMALL PLAYER ===== */
-      .player-small iframe[src*="youtube.com"],
-      .player-small iframe[data-active="true"] {
-        max-height: 25vh !important;
-        height: 25vh !important;
+      /* Fix title and description visibility */
+      /* The title section that shows "Melania" etc */
+      h2.text-2xl {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
       }
 
-      .player-small .snap-center > div:first-child {
-        max-height: 30vh !important;
+      /* Ensure the bottom info section is fully visible */
+      .snap-center [class*="bottom-4"][class*="left-4"] {
+        left: 16px !important;
+        right: 350px !important;
+        max-width: calc(100% - 380px) !important;
       }
 
-      .player-small [class*="group/player"] {
-        max-height: 30vh !important;
-      }
-
-      /* ===== MEDIUM PLAYER ===== */
-      .player-medium iframe[src*="youtube.com"],
-      .player-medium iframe[data-active="true"] {
-        max-height: 40vh !important;
-        height: 40vh !important;
-      }
-
-      .player-medium .snap-center > div:first-child {
-        max-height: 45vh !important;
-      }
-
-      .player-medium [class*="group/player"] {
-        max-height: 45vh !important;
-      }
-
-      /* ===== LARGE PLAYER ===== */
-      .player-large iframe[src*="youtube.com"],
-      .player-large iframe[data-active="true"] {
-        max-height: 55vh !important;
-        height: 55vh !important;
-      }
-
-      .player-large .snap-center > div:first-child {
-        max-height: 60vh !important;
-      }
-
-      .player-large [class*="group/player"] {
-        max-height: 60vh !important;
-      }
-
-      /* ===== FULLSCREEN PLAYER ===== */
-      .player-fullscreen iframe[src*="youtube.com"],
-      .player-fullscreen iframe[data-active="true"] {
-        max-height: 75vh !important;
-        height: 75vh !important;
-      }
-
-      .player-fullscreen .snap-center > div:first-child {
-        max-height: 80vh !important;
-      }
-
-      .player-fullscreen [class*="group/player"] {
-        max-height: 80vh !important;
-      }
-
-      /* Fix the parent container that holds the iframe */
-      .player-small [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
-        height: 25vh !important;
-        max-height: 25vh !important;
-      }
-
-      .player-medium [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
-        height: 40vh !important;
-        max-height: 40vh !important;
-      }
-
-      .player-large [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
-        height: 55vh !important;
-        max-height: 55vh !important;
-      }
-
-      .player-fullscreen [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
-        height: 75vh !important;
-        max-height: 75vh !important;
-      }
-
-      /* Target the snap-center slide's inner container */
-      .player-small .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
-        height: 30vh !important;
-        position: relative !important;
-      }
-
-      .player-medium .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
-        height: 45vh !important;
-        position: relative !important;
-      }
-
-      .player-large .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
-        height: 60vh !important;
-        position: relative !important;
-      }
-
-      .player-fullscreen .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
-        height: 80vh !important;
-        position: relative !important;
-      }
-
-      /* Ensure info section doesn't overlap */
-      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
-        position: relative !important;
-        bottom: auto !important;
-        left: auto !important;
-        padding: 16px !important;
-        margin-top: 10px !important;
-      }
-
-      /* Make snap-center slides flex column */
-      .snap-center {
-        display: flex !important;
-        flex-direction: column !important;
-        height: 100% !important;
-      }
-
-      .snap-center > div:first-child {
-        flex-shrink: 0 !important;
-      }
-
-      /* Text should not overlap with poster row */
+      /* Make sure text isn't clipped */
       [class*="line-clamp"] {
-        -webkit-line-clamp: 3 !important;
+        -webkit-line-clamp: 4 !important;
+        line-clamp: 4 !important;
+        display: -webkit-box !important;
+        overflow: visible !important;
       }
 
-      /* Poster carousel at bottom */
-      [class*="2026 HOT PICKS"],
-      [class*="hot-picks"] {
-        margin-top: auto !important;
+      /* Ensure the info badges row is visible */
+      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="bg-yellow"]) {
+        flex-wrap: wrap !important;
+      }
+
+      /* Player size CSS classes as backup */
+      .player-small iframe[src*="youtube"] {
+        height: 200px !important;
+        max-height: 200px !important;
+      }
+
+      .player-medium iframe[src*="youtube"] {
+        height: 300px !important;
+        max-height: 300px !important;
+      }
+
+      .player-large iframe[src*="youtube"] {
+        height: 400px !important;
+        max-height: 400px !important;
+      }
+
+      .player-full iframe[src*="youtube"] {
+        height: 70vh !important;
+        max-height: 70vh !important;
       }
     `;
 
     document.head.appendChild(style);
-    console.log("[MovieShows] Custom styles injected");
   }
 
   // ========== SCROLL NAVIGATION ==========
@@ -271,12 +220,9 @@
   }
 
   function clickQueuePlayButton() {
-    console.log("[MovieShows] Looking for Queue play button...");
-
     const allButtons = document.querySelectorAll("button");
     for (const btn of allButtons) {
       if (btn.textContent?.includes("Play Queue")) {
-        console.log("[MovieShows] Found Play Queue button, clicking...");
         btn.click();
         return true;
       }
@@ -284,7 +230,6 @@
 
     const greenPlayBtn = document.querySelector('button[class*="bg-green"]');
     if (greenPlayBtn) {
-      console.log("[MovieShows] Found green Play button, clicking...");
       greenPlayBtn.click();
       return true;
     }
@@ -298,31 +243,21 @@
     const slideHeight = scrollContainer.clientHeight;
     if (slideHeight <= 0) return 0;
 
-    const index = Math.max(
+    return Math.max(
       0,
       Math.min(
         videoSlides.length - 1,
         Math.round(scrollContainer.scrollTop / slideHeight),
       ),
     );
-    return index;
   }
 
   function scrollToSlide(index) {
     if (!scrollContainer || index < 0 || index >= videoSlides.length) return;
 
     const slideHeight = scrollContainer.clientHeight;
-    const targetScrollTop = index * slideHeight;
-
-    console.log(
-      "[MovieShows] Scrolling to video",
-      index + 1,
-      "of",
-      videoSlides.length,
-    );
-
     scrollContainer.scrollTo({
-      top: targetScrollTop,
+      top: index * slideHeight,
       behavior: "smooth",
     });
 
@@ -335,7 +270,6 @@
     const newIndex = getCurrentVisibleIndex();
     if (newIndex !== currentIndex) {
       currentIndex = newIndex;
-      console.log("[MovieShows] Now viewing video", currentIndex + 1);
     }
   }
 
@@ -345,7 +279,6 @@
     if (
       target.closest("#player-size-control") ||
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
-      target.closest('[class*="custom-scrollbar"]') ||
       target.closest('[class*="Queue"]') ||
       target.closest('[class*="fixed"][class*="right"]') ||
       target.closest("select")
@@ -353,10 +286,8 @@
       return;
     }
 
-    if (!scrollContainer) return;
-
-    if (isScrolling) {
-      e.preventDefault();
+    if (!scrollContainer || isScrolling) {
+      if (isScrolling) e.preventDefault();
       return;
     }
 
@@ -378,6 +309,9 @@
       scrollTimeout = setTimeout(() => {
         isScrolling = false;
         currentIndex = getCurrentVisibleIndex();
+        // Re-apply player size after scroll
+        const size = localStorage.getItem("movieshows-player-size") || "large";
+        setTimeout(() => applyPlayerSize(size), 100);
       }, SCROLL_COOLDOWN);
     }
   }
@@ -440,8 +374,8 @@
         localStorage.setItem("movieshows-player-size", "large");
         return;
       case "4":
-        setPlayerSize("fullscreen");
-        localStorage.setItem("movieshows-player-size", "fullscreen");
+        setPlayerSize("full");
+        localStorage.setItem("movieshows-player-size", "full");
         return;
     }
 
@@ -501,6 +435,22 @@
     }
   }
 
+  // Watch for new iframes being added and apply size
+  function setupIframeObserver() {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.addedNodes.length) {
+          const size =
+            localStorage.getItem("movieshows-player-size") || "large";
+          setTimeout(() => applyPlayerSize(size), 200);
+          break;
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+  }
+
   function init() {
     if (initialized) return;
 
@@ -511,23 +461,17 @@
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
-      console.log("[MovieShows] Scroll container not found, retrying...");
       setTimeout(init, 1000);
       return;
     }
 
     videoSlides = findVideoSlides();
     if (videoSlides.length === 0) {
-      console.log("[MovieShows] No video slides found, retrying...");
       setTimeout(init, 1000);
       return;
     }
 
-    console.log(
-      "[MovieShows] Found scroll container and",
-      videoSlides.length,
-      "videos",
-    );
+    console.log("[MovieShows] Found", videoSlides.length, "videos");
 
     document.addEventListener("wheel", handleWheel, { passive: false });
     document.addEventListener("keydown", handleKeydown);
@@ -535,23 +479,28 @@
       passive: true,
     });
     document.addEventListener("touchend", handleTouchEnd, { passive: true });
-
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
     currentIndex = getCurrentVisibleIndex();
 
+    // Setup observer to apply size when iframes load
+    setupIframeObserver();
+
+    // Apply initial player size
+    const savedSize = localStorage.getItem("movieshows-player-size") || "large";
+    setTimeout(() => applyPlayerSize(savedSize), 500);
+
+    // Auto-click play queue
     setTimeout(() => {
-      if (clickQueuePlayButton()) {
-        console.log("[MovieShows] Auto-started queue playback");
-      } else {
+      if (!clickQueuePlayButton()) {
         setTimeout(clickQueuePlayButton, 2000);
       }
     }, 2000);
 
     initialized = true;
-    console.log("[MovieShows] Ready! Controls:");
-    console.log("  - Scroll: Mouse wheel, Arrow Up/Down, J/K, swipe");
-    console.log("  - Player size: 1/2/3/4 keys or S/M/L/Full buttons");
+    console.log(
+      "[MovieShows] Ready! Scroll: wheel/arrows/J/K | Size: 1/2/3/4 keys",
+    );
   }
 
   function setupMutationObserver() {
