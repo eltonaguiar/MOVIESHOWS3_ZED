@@ -275,21 +275,22 @@
     const style = document.createElement("style");
     style.id = "movieshows-custom-styles";
     style.textContent = `
-      /* Player size control */
+      /* Player size control - positioned below app header */
       #player-size-control {
         position: fixed;
-        top: 8px;
+        top: 60px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 9999;
         display: flex;
         align-items: center;
         gap: 6px;
-        background: rgba(0, 0, 0, 0.9);
-        padding: 6px 14px;
+        background: rgba(0, 0, 0, 0.95);
+        padding: 8px 16px;
         border-radius: 20px;
         backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
       }
 
       #player-size-control button {
@@ -379,50 +380,11 @@
         color: black;
       }
 
-      /* ===== FIX: Add padding-top to push content down so player is visible ===== */
+      /* ===== Ensure video player area has proper spacing ===== */
 
-      /* Small - Add padding to push video into view */
-      .player-small .snap-center {
-        padding-top: 60px !important;
-      }
-
-      .player-small iframe[src*="youtube"] {
-        height: 25vh !important;
-        max-height: 200px !important;
-        min-height: 150px !important;
-      }
-
-      /* Medium */
-      .player-medium .snap-center {
-        padding-top: 50px !important;
-      }
-
-      .player-medium iframe[src*="youtube"] {
-        height: 35vh !important;
-        max-height: 300px !important;
-        min-height: 200px !important;
-      }
-
-      /* Large (default) */
-      .player-large .snap-center {
-        padding-top: 40px !important;
-      }
-
-      .player-large iframe[src*="youtube"] {
-        height: 45vh !important;
-        max-height: 400px !important;
-        min-height: 280px !important;
-      }
-
-      /* Full - minimal padding, more video */
-      .player-full .snap-center {
-        padding-top: 30px !important;
-      }
-
-      .player-full iframe[src*="youtube"] {
-        height: 60vh !important;
-        max-height: 70vh !important;
-        min-height: 400px !important;
+      /* Add consistent padding to all player modes */
+      .snap-center {
+        padding-top: 70px !important;
       }
 
       /* ===== Ensure title/info section is always visible ===== */
