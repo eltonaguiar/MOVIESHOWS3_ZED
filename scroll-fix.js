@@ -5,7 +5,7 @@
   let initialized = false;
   let scrollContainer = null;
   let videoSlides = [];
-  let currentIndex = 0;
+  let currentIndex = -1; // Start at -1 to properly sync on first scroll
   let isScrolling = false;
   let scrollTimeout = null;
   const SCROLL_COOLDOWN = 500;
@@ -55,44 +55,7 @@
       });
     }
 
-    // Apply size directly to iframes found on page
-    applyPlayerSize(size);
-
     console.log("[MovieShows] Player size:", size);
-  }
-
-  function applyPlayerSize(size) {
-    const heights = {
-      small: "200px",
-      medium: "300px",
-      large: "400px",
-      full: "70vh",
-    };
-
-    const height = heights[size] || heights.large;
-
-    // Find all YouTube iframes and their containers
-    const iframes = document.querySelectorAll('iframe[src*="youtube"]');
-    iframes.forEach((iframe) => {
-      iframe.style.height = height;
-      iframe.style.maxHeight = height;
-
-      // Also style parent containers
-      let parent = iframe.parentElement;
-      for (let i = 0; i < 5 && parent; i++) {
-        if (
-          parent.className &&
-          (parent.className.includes("group/player") ||
-            (parent.className.includes("relative") &&
-              parent.className.includes("w-full")))
-        ) {
-          parent.style.height = height;
-          parent.style.maxHeight = height;
-          break;
-        }
-        parent = parent.parentElement;
-      }
-    });
   }
 
   function injectStyles() {
@@ -141,53 +104,80 @@
         color: black;
       }
 
-      /* Fix title and description visibility */
-      /* The title section that shows "Melania" etc */
-      h2.text-2xl {
+      /* ===== PLAYER SIZES - Using min-height to keep player visible ===== */
+
+      /* Small - compact but visible */
+      .player-small iframe[src*="youtube"] {
+        min-height: 180px !important;
+        max-height: 220px !important;
+        height: 200px !important;
+      }
+
+      /* Medium */
+      .player-medium iframe[src*="youtube"] {
+        min-height: 280px !important;
+        max-height: 350px !important;
+        height: 300px !important;
+      }
+
+      /* Large (default) */
+      .player-large iframe[src*="youtube"] {
+        min-height: 380px !important;
+        max-height: 450px !important;
+        height: 400px !important;
+      }
+
+      /* Full */
+      .player-full iframe[src*="youtube"] {
+        min-height: 500px !important;
+        max-height: 75vh !important;
+        height: 70vh !important;
+      }
+
+      /* Ensure the player container respects these sizes */
+      .player-small [class*="group/player"],
+      .player-small [class*="relative"][class*="max-w"] {
+        min-height: 200px !important;
+        max-height: 250px !important;
+      }
+
+      .player-medium [class*="group/player"],
+      .player-medium [class*="relative"][class*="max-w"] {
+        min-height: 300px !important;
+        max-height: 380px !important;
+      }
+
+      .player-large [class*="group/player"],
+      .player-large [class*="relative"][class*="max-w"] {
+        min-height: 400px !important;
+        max-height: 480px !important;
+      }
+
+      .player-full [class*="group/player"],
+      .player-full [class*="relative"][class*="max-w"] {
+        min-height: 500px !important;
+        max-height: 80vh !important;
+      }
+
+      /* Keep the video centered and visible */
+      iframe[src*="youtube"] {
+        display: block !important;
+        margin: 0 auto !important;
+      }
+
+      /* Fix title visibility - ensure it's not cut off */
+      h2.text-2xl,
+      [class*="text-2xl"][class*="font-bold"] {
         display: block !important;
         visibility: visible !important;
-        opacity: 1 !important;
-      }
-
-      /* Ensure the bottom info section is fully visible */
-      .snap-center [class*="bottom-4"][class*="left-4"] {
-        left: 16px !important;
-        right: 350px !important;
-        max-width: calc(100% - 380px) !important;
-      }
-
-      /* Make sure text isn't clipped */
-      [class*="line-clamp"] {
-        -webkit-line-clamp: 4 !important;
-        line-clamp: 4 !important;
-        display: -webkit-box !important;
+        white-space: normal !important;
         overflow: visible !important;
       }
 
-      /* Ensure the info badges row is visible */
-      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="bg-yellow"]) {
-        flex-wrap: wrap !important;
-      }
-
-      /* Player size CSS classes as backup */
-      .player-small iframe[src*="youtube"] {
-        height: 200px !important;
-        max-height: 200px !important;
-      }
-
-      .player-medium iframe[src*="youtube"] {
-        height: 300px !important;
-        max-height: 300px !important;
-      }
-
-      .player-large iframe[src*="youtube"] {
-        height: 400px !important;
-        max-height: 400px !important;
-      }
-
-      .player-full iframe[src*="youtube"] {
-        height: 70vh !important;
-        max-height: 70vh !important;
+      /* Make description more visible */
+      [class*="line-clamp"] {
+        -webkit-line-clamp: 5 !important;
+        line-clamp: 5 !important;
       }
     `;
 
@@ -262,6 +252,7 @@
     });
 
     currentIndex = index;
+    console.log("[MovieShows] Scrolled to video", index + 1);
   }
 
   function handleScroll() {
@@ -276,6 +267,7 @@
   function handleWheel(e) {
     const target = e.target;
 
+    // Don't intercept in these areas
     if (
       target.closest("#player-size-control") ||
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
@@ -286,14 +278,22 @@
       return;
     }
 
-    if (!scrollContainer || isScrolling) {
-      if (isScrolling) e.preventDefault();
+    if (!scrollContainer) return;
+
+    if (isScrolling) {
+      e.preventDefault();
       return;
     }
 
     if (Math.abs(e.deltaY) < 20) return;
 
     e.preventDefault();
+
+    // Sync current index from actual scroll position first
+    const actualIndex = getCurrentVisibleIndex();
+    if (currentIndex === -1 || currentIndex !== actualIndex) {
+      currentIndex = actualIndex;
+    }
 
     const direction = e.deltaY > 0 ? 1 : -1;
     const newIndex = Math.max(
@@ -309,9 +309,6 @@
       scrollTimeout = setTimeout(() => {
         isScrolling = false;
         currentIndex = getCurrentVisibleIndex();
-        // Re-apply player size after scroll
-        const size = localStorage.getItem("movieshows-player-size") || "large";
-        setTimeout(() => applyPlayerSize(size), 100);
       }, SCROLL_COOLDOWN);
     }
   }
@@ -383,6 +380,12 @@
 
     e.preventDefault();
 
+    // Sync current index
+    const actualIndex = getCurrentVisibleIndex();
+    if (currentIndex === -1 || currentIndex !== actualIndex) {
+      currentIndex = actualIndex;
+    }
+
     const newIndex = Math.max(
       0,
       Math.min(videoSlides.length - 1, currentIndex + direction),
@@ -416,6 +419,12 @@
     const duration = Date.now() - touchStartTime;
 
     if (duration < 300 && Math.abs(deltaY) > 50) {
+      // Sync index
+      const actualIndex = getCurrentVisibleIndex();
+      if (currentIndex === -1 || currentIndex !== actualIndex) {
+        currentIndex = actualIndex;
+      }
+
       const direction = deltaY > 0 ? 1 : -1;
       const newIndex = Math.max(
         0,
@@ -433,22 +442,6 @@
         }, SCROLL_COOLDOWN);
       }
     }
-  }
-
-  // Watch for new iframes being added and apply size
-  function setupIframeObserver() {
-    const observer = new MutationObserver((mutations) => {
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length) {
-          const size =
-            localStorage.getItem("movieshows-player-size") || "large";
-          setTimeout(() => applyPlayerSize(size), 200);
-          break;
-        }
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
   }
 
   function init() {
@@ -481,14 +474,9 @@
     document.addEventListener("touchend", handleTouchEnd, { passive: true });
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
+    // Sync initial index from actual scroll position
     currentIndex = getCurrentVisibleIndex();
-
-    // Setup observer to apply size when iframes load
-    setupIframeObserver();
-
-    // Apply initial player size
-    const savedSize = localStorage.getItem("movieshows-player-size") || "large";
-    setTimeout(() => applyPlayerSize(savedSize), 500);
+    console.log("[MovieShows] Initial index:", currentIndex);
 
     // Auto-click play queue
     setTimeout(() => {
