@@ -1,0 +1,39 @@
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+.env.local
+.env.*.local
+
+# Temporary files
+*.tmp
+*.temp
+
+# Node modules (if you add npm packages later)
+node_modules/
+
+# Build files (if you add a build process)
+dist/
+build/
+
+# Next.js / tooling (if you add a build process)
+.next/
+out/
+coverage/
+.turbo/

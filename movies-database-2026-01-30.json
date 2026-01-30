@@ -1,0 +1,50 @@
+[
+  {
+    "id": "m-2026-01",
+    "title": "Avatar: Fire and Ash",
+    "description": "James Cameron's next chapter in the Avatar saga. The Na'vi face new threats as the RDA returns with devastating force.",
+    "descriptions": [
+      "James Cameron's next chapter in the Avatar saga. The Na'vi face new threats as the RDA returns with devastating force.",
+      "The third installment of James Cameron's Avatar franchise, exploring the 'Ash People' of Pandora.",
+      "War between the Na'vi and the RDA intensifies as a new fire-based tribe emerges on the moons of Pandora."
+    ],
+    "videoUrl": "Ma1x7ikpid8",
+    "posterUrl": "https://image.tmdb.org/t/p/w500/rmrfRWP2L3jGQOGLgXbP2q5nN2x.jpg",
+    "genres": [
+      "Sci-Fi",
+      "Adventure",
+      "Action"
+    ],
+    "rating": "8.5",
+    "rottenTomatoesRating": "92%",
+    "year": "2026",
+    "releaseDate": "2026-12-19",
+    "type": "movie",
+    "source": "In Theatres",
+    "videoUrlFallback": "Ma1x7ikpid8",
+    "trailers": [
+      {
+        "type": "youtube",
+        "url": "https://www.youtube.com/watch?v=Ma1x7ikpid8",
+        "label": "YouTube Trailer",
+        "providerId": "Ma1x7ikpid8"
+      }
+    ]
+  },
+  {
+    "id": "m-2026-04",
+    "title": "The Batman Part II",
+    "description": "The sequel to Matt Reeves' The Batman, continuing the crime saga in Gotham City.",
+    "descriptions": [
+      "The sequel to Matt Reeves' The Batman, continuing the crime saga in Gotham City.",
+      "Robert Pattinson returns as the Dark Knight in the second chapter of Matt Reeves' epic crime saga.",
+      "Gotham City is once again under threat as Batman faces new challenges in this highly anticipated sequel."
+    ],
+    "videoUrl": "mqqft2x_Aa4",
+    "posterUrl": "https://image.tmdb.org/t/p/w500/74xTEgt7R36Fpooo50x9TfdLnTp.jpg",
+    "genres": [
+      "Action",
+      "Crime",
+      "Drama"
+    ],
+    "rating": "8.8"
