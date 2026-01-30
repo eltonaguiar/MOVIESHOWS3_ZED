@@ -3,8 +3,8 @@ self.__BUILD_MANIFEST = {
     "afterFiles": [],
     "beforeFiles": [
       {
-        "source": "/MOVIESHOWS//_next/:path+",
-        "destination": "/MOVIESHOWS/_next/:path+"
+        "source": "/MOVIESHOWS3_ZED//_next/:path+",
+        "destination": "/MOVIESHOWS3_ZED/_next/:path+"
       }
     ],
     "fallback": []
