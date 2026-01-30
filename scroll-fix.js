@@ -9,7 +9,7 @@
   let currentIndex = 0;
   let isScrolling = false;
   let scrollTimeout = null;
-  const SCROLL_COOLDOWN = 400;
+  const SCROLL_COOLDOWN = 500;
 
   // Find the main scroll container with snap-y
   function findScrollContainer() {
@@ -40,125 +40,19 @@
   function clickQueuePlayButton() {
     console.log("[MovieShows] Looking for Queue play button...");
 
-    // The Queue panel has items with play buttons (▷ triangle icons)
-    // Look for the play button SVG or button near queue items
-
-    // Find the Queue panel - it contains "Queue" text and has the playlist
-    const queuePanel =
-      document.querySelector('[class*="Queue"]') ||
-      document
-        .evaluate(
-          "//div[contains(text(), 'Queue')]",
-          document,
-          null,
-          XPathResult.FIRST_ORDERED_NODE_TYPE,
-          null,
-        )
-        .singleNodeValue?.closest('div[class*="fixed"]') ||
-      document.querySelector('[class*="fixed"][class*="right-0"]');
-
-    if (queuePanel) {
-      console.log("[MovieShows] Found Queue panel");
-
-      // Find play buttons (usually SVG triangles or buttons with play icon)
-      // The play icon is typically a right-pointing triangle ▷
-      const playButtons = queuePanel.querySelectorAll(
-        'button, [role="button"], svg',
-      );
-
-      for (const btn of playButtons) {
-        // Check if it's a play button by looking for triangle/play path or aria-label
-        const isPlayButton =
-          btn.querySelector('path[d*="M"]') || // SVG play icon
-          btn.querySelector("polygon") || // Triangle
-          btn.getAttribute("aria-label")?.toLowerCase().includes("play") ||
-          btn.className?.includes("play");
-
-        // Also check if parent is a button-like element
-        const parent =
-          btn.closest("button") ||
-          btn.closest('[role="button"]') ||
-          btn.closest('[class*="cursor-pointer"]');
-
-        if (
-          parent &&
-          !parent.querySelector('[class*="trash"]') &&
-          !parent.querySelector('[class*="delete"]')
-        ) {
-          // Skip if it's the main "Play Queue" button at bottom
-          if (
-            parent.textContent?.includes("Play Queue") ||
-            parent.textContent?.includes("Shuffle")
-          ) {
-            continue;
-          }
-
-          // This might be the individual play button next to a queue item
-          console.log("[MovieShows] Found potential play button, clicking...");
-          parent.click();
-          return true;
-        }
+    // Find the green "Play Queue" button
+    const allButtons = document.querySelectorAll("button");
+    for (const btn of allButtons) {
+      if (btn.textContent?.includes("Play Queue")) {
+        console.log("[MovieShows] Found Play Queue button, clicking...");
+        btn.click();
+        return true;
       }
     }
 
-    // Alternative: Find any element that looks like a play button near queue items
-    // Queue items have poster images and play/delete buttons
-    const queueItems = document.querySelectorAll(
-      '[class*="draggable"], [class*="queue-item"], [class*="flex"][class*="gap"]',
-    );
-
-    for (const item of queueItems) {
-      // Look for the small play button (not the big Play Queue button)
-      const buttons = item.querySelectorAll(
-        'button, [class*="cursor-pointer"]',
-      );
-      for (const btn of buttons) {
-        // Check for play icon (triangle SVG)
-        const svg = btn.querySelector("svg");
-        if (svg) {
-          const path = svg.querySelector("path");
-          if (path) {
-            const d = path.getAttribute("d") || "";
-            // Play icons typically have a triangular path
-            if (
-              d.includes("M") &&
-              (d.includes("l") || d.includes("L")) &&
-              !d.includes("rect")
-            ) {
-              // Check it's not a trash/delete icon
-              if (
-                !btn.closest('[class*="trash"]') &&
-                !btn.textContent?.includes("delete")
-              ) {
-                console.log(
-                  "[MovieShows] Found play button via SVG, clicking...",
-                );
-                btn.click();
-                return true;
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Last resort: Find the "Play Queue" button and click it
-    const playQueueBtn = document.evaluate(
-      "//button[contains(., 'Play Queue')]",
-      document,
-      null,
-      XPathResult.FIRST_ORDERED_NODE_TYPE,
-      null,
-    ).singleNodeValue;
-    if (playQueueBtn) {
-      console.log("[MovieShows] Found Play Queue button, clicking...");
-      playQueueBtn.click();
-      return true;
-    }
-
-    // Alternative: look for green "Play Queue" button
+    // Alternative: look for green button with play icon
     const greenPlayBtn = document.querySelector('button[class*="bg-green"]');
-    if (greenPlayBtn && greenPlayBtn.textContent?.includes("Play")) {
+    if (greenPlayBtn) {
       console.log("[MovieShows] Found green Play button, clicking...");
       greenPlayBtn.click();
       return true;
@@ -168,53 +62,56 @@
   }
 
   // Get the currently visible slide based on scroll position
+  // This mirrors how the React app calculates the index
   function getCurrentVisibleIndex() {
     if (!scrollContainer || videoSlides.length === 0) return 0;
 
-    const containerRect = scrollContainer.getBoundingClientRect();
-    const containerCenter = containerRect.top + containerRect.height / 2;
+    const slideHeight = scrollContainer.clientHeight;
+    if (slideHeight <= 0) return 0;
 
-    let closestIndex = 0;
-    let closestDistance = Infinity;
+    // This matches the React calculation: Math.round(scrollTop / clientHeight)
+    const index = Math.max(
+      0,
+      Math.min(
+        videoSlides.length - 1,
+        Math.round(scrollContainer.scrollTop / slideHeight),
+      ),
+    );
+    return index;
+  }
 
-    videoSlides.forEach((slide, index) => {
-      const rect = slide.getBoundingClientRect();
-      const slideCenter = rect.top + rect.height / 2;
-      const distance = Math.abs(slideCenter - containerCenter);
+  // Scroll to a specific slide by setting scrollTop directly
+  // This triggers the React scroll handler which updates the active video
+  function scrollToSlide(index) {
+    if (!scrollContainer || index < 0 || index >= videoSlides.length) return;
 
-      if (distance < closestDistance) {
-        closestDistance = distance;
-        closestIndex = index;
-      }
+    const slideHeight = scrollContainer.clientHeight;
+    const targetScrollTop = index * slideHeight;
+
+    console.log(
+      "[MovieShows] Scrolling to video",
+      index + 1,
+      "of",
+      videoSlides.length,
+    );
+
+    // Use scrollTo with smooth behavior - this will trigger the React scroll handler
+    scrollContainer.scrollTo({
+      top: targetScrollTop,
+      behavior: "smooth",
     });
 
-    return closestIndex;
+    currentIndex = index;
   }
 
-  // Scroll to a specific slide
-  function scrollToSlide(index) {
-    if (index < 0 || index >= videoSlides.length) return;
-
-    const slide = videoSlides[index];
-    if (slide) {
-      slide.scrollIntoView({ behavior: "smooth", block: "center" });
-      currentIndex = index;
-      console.log(
-        "[MovieShows] Scrolled to video",
-        index + 1,
-        "of",
-        videoSlides.length,
-      );
-    }
-  }
-
-  // Handle scroll events on the container
+  // Handle scroll events on the container to track current position
   function handleScroll() {
     if (isScrolling) return;
 
     const newIndex = getCurrentVisibleIndex();
     if (newIndex !== currentIndex) {
       currentIndex = newIndex;
+      console.log("[MovieShows] Now viewing video", currentIndex + 1);
     }
   }
 
@@ -222,7 +119,7 @@
   function handleWheel(e) {
     const target = e.target;
 
-    // Don't intercept scrolling in nested scrollable areas (like the queue panel)
+    // Don't intercept scrolling in the queue panel or other scrollable areas
     if (
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
       target.closest('[class*="custom-scrollbar"]') ||
@@ -240,7 +137,10 @@
       return;
     }
 
-    if (Math.abs(e.deltaY) < 10) return;
+    // Only respond to significant scroll
+    if (Math.abs(e.deltaY) < 20) return;
+
+    e.preventDefault();
 
     const direction = e.deltaY > 0 ? 1 : -1;
     const newIndex = Math.max(
@@ -249,13 +149,14 @@
     );
 
     if (newIndex !== currentIndex) {
-      e.preventDefault();
       isScrolling = true;
       scrollToSlide(newIndex);
 
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         isScrolling = false;
+        // Re-sync current index after scroll completes
+        currentIndex = getCurrentVisibleIndex();
       }, SCROLL_COOLDOWN);
     }
   }
@@ -287,18 +188,30 @@
       case "Home":
         if (videoSlides.length > 0) {
           e.preventDefault();
+          isScrolling = true;
           scrollToSlide(0);
+          clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(() => {
+            isScrolling = false;
+          }, SCROLL_COOLDOWN);
         }
         return;
       case "End":
         if (videoSlides.length > 0) {
           e.preventDefault();
+          isScrolling = true;
           scrollToSlide(videoSlides.length - 1);
+          clearTimeout(scrollTimeout);
+          scrollTimeout = setTimeout(() => {
+            isScrolling = false;
+          }, SCROLL_COOLDOWN);
         }
         return;
     }
 
     if (direction === 0) return;
+
+    e.preventDefault();
 
     const newIndex = Math.max(
       0,
@@ -306,25 +219,23 @@
     );
 
     if (newIndex !== currentIndex) {
-      e.preventDefault();
       isScrolling = true;
       scrollToSlide(newIndex);
 
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
         isScrolling = false;
+        currentIndex = getCurrentVisibleIndex();
       }, SCROLL_COOLDOWN);
     }
   }
 
   // Touch handling
   let touchStartY = 0;
-  let touchStartX = 0;
   let touchStartTime = 0;
 
   function handleTouchStart(e) {
     touchStartY = e.touches[0].clientY;
-    touchStartX = e.touches[0].clientX;
     touchStartTime = Date.now();
   }
 
@@ -332,16 +243,12 @@
     if (isScrolling) return;
 
     const touchEndY = e.changedTouches[0].clientY;
-    const touchEndX = e.changedTouches[0].clientX;
     const deltaY = touchStartY - touchEndY;
-    const deltaX = touchStartX - touchEndX;
     const duration = Date.now() - touchStartTime;
 
-    const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
-    const delta = isVerticalSwipe ? deltaY : deltaX;
-
-    if (duration < 300 && Math.abs(delta) > 80) {
-      const direction = delta > 0 ? 1 : -1;
+    // Quick swipe detection
+    if (duration < 300 && Math.abs(deltaY) > 50) {
+      const direction = deltaY > 0 ? 1 : -1;
       const newIndex = Math.max(
         0,
         Math.min(videoSlides.length - 1, currentIndex + direction),
@@ -354,43 +261,17 @@
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
           isScrolling = false;
+          currentIndex = getCurrentVisibleIndex();
         }, SCROLL_COOLDOWN);
       }
     }
-  }
-
-  // Use IntersectionObserver to track which video is visible
-  function setupIntersectionObserver() {
-    if (!scrollContainer || videoSlides.length === 0) return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-            const index = videoSlides.indexOf(entry.target);
-            if (index !== -1 && index !== currentIndex) {
-              currentIndex = index;
-              console.log("[MovieShows] Video", index + 1, "now in view");
-            }
-          }
-        });
-      },
-      {
-        root: scrollContainer,
-        threshold: 0.5,
-      },
-    );
-
-    videoSlides.forEach((slide) => observer.observe(slide));
-
-    return observer;
   }
 
   // Initialize everything
   function init() {
     if (initialized) return;
 
-    console.log("[MovieShows] Looking for scroll container...");
+    console.log("[MovieShows] Initializing scroll fix...");
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
@@ -406,10 +287,12 @@
       return;
     }
 
-    console.log("[MovieShows] Found", videoSlides.length, "videos");
-
-    // Set up intersection observer
-    setupIntersectionObserver();
+    console.log(
+      "[MovieShows] Found scroll container and",
+      videoSlides.length,
+      "videos",
+    );
+    console.log("[MovieShows] Container height:", scrollContainer.clientHeight);
 
     // Add event listeners
     document.addEventListener("wheel", handleWheel, { passive: false });
@@ -419,36 +302,28 @@
     });
     document.addEventListener("touchend", handleTouchEnd, { passive: true });
 
-    // Track scroll on the container
+    // Track native scroll on the container
     scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
 
     // Get initial position
     currentIndex = getCurrentVisibleIndex();
+    console.log("[MovieShows] Initial video index:", currentIndex);
 
-    // Make sure first video is in view
-    if (currentIndex === 0 && videoSlides.length > 0) {
-      setTimeout(() => {
-        const firstSlide = videoSlides[0];
-        if (firstSlide) {
-          firstSlide.scrollIntoView({ behavior: "auto", block: "center" });
-        }
-      }, 300);
-    }
-
-    // Auto-click the Play button in the Queue to activate scrolling
+    // Auto-click the Play Queue button to activate the player
     setTimeout(() => {
       if (clickQueuePlayButton()) {
-        console.log("[MovieShows] Auto-activated queue playback");
+        console.log("[MovieShows] Auto-started queue playback");
       } else {
-        console.log("[MovieShows] Could not find play button, trying again...");
+        console.log("[MovieShows] Play Queue button not found, will retry...");
+        // Retry after more time for React to render
         setTimeout(clickQueuePlayButton, 2000);
       }
-    }, 1500);
+    }, 2000);
 
     initialized = true;
     console.log("[MovieShows] Scroll navigation ready!");
     console.log(
-      "[MovieShows] Use: Mouse wheel, Arrow keys (up/down), J/K, Home/End, or swipe",
+      "[MovieShows] Controls: Mouse wheel, Arrow Up/Down, J/K, Home/End, or swipe",
     );
   }
 
@@ -457,11 +332,15 @@
     const observer = new MutationObserver(() => {
       if (!initialized) {
         init();
-      } else {
+      } else if (scrollContainer) {
         const newSlides = findVideoSlides();
         if (newSlides.length !== videoSlides.length) {
           videoSlides = newSlides;
-          setupIntersectionObserver();
+          console.log(
+            "[MovieShows] Video list updated:",
+            videoSlides.length,
+            "videos",
+          );
         }
       }
     });
@@ -476,10 +355,10 @@
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", () => {
       setupMutationObserver();
-      setTimeout(init, 1500);
+      setTimeout(init, 2000);
     });
   } else {
     setupMutationObserver();
-    setTimeout(init, 1500);
+    setTimeout(init, 2000);
   }
 })();
