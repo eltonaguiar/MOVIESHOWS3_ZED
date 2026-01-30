@@ -177,21 +177,36 @@
         max-height: 90vh !important;
       }
 
-      /* Ensure info section is visible */
-      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"],
+      /* Fix info section to not overlap with poster carousel */
+      /* The info section (title, badges, description) needs to be above the poster bar */
+      [class*="absolute"][class*="bottom-"][class*="left-"][class*="z-30"],
       [class*="absolute"][class*="bottom-"][class*="left-"][class*="flex-col"] {
-        max-width: calc(100% - 120px) !important;
+        bottom: 180px !important;
+        max-width: calc(100% - 140px) !important;
+        z-index: 40 !important;
       }
 
-      /* Title styling */
+      /* Make sure the poster carousel stays at the bottom */
+      [class*="absolute"][class*="bottom-0"][class*="left-0"][class*="right-0"],
+      [class*="flex"][class*="overflow-x-auto"] {
+        z-index: 30 !important;
+      }
+
+      /* Title styling - ensure readability */
       h2[class*="text-2xl"],
       h2[class*="font-bold"] {
-        text-shadow: 0 2px 4px rgba(0,0,0,0.8) !important;
+        text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7) !important;
       }
 
-      /* Description */
+      /* Description - ensure readability */
       [class*="line-clamp"] {
-        text-shadow: 0 1px 3px rgba(0,0,0,0.8) !important;
+        text-shadow: 0 1px 6px rgba(0,0,0,0.9) !important;
+      }
+
+      /* Genre/tag badges */
+      [class*="text-xs"][class*="px-"],
+      [class*="rounded"][class*="bg-"] {
+        text-shadow: none !important;
       }
     `;
 
