@@ -8,20 +8,18 @@
   let currentIndex = -1;
   let isScrolling = false;
   let scrollTimeout = null;
-  let currentPlayerSize = "large";
   const SCROLL_COOLDOWN = 500;
 
-  // Player size configurations - pixel values for precise control
-  let customPlayerHeight = 400; // Default height in pixels
-
+  // Player height in pixels (for manual adjustment)
+  let customPlayerHeight = 350;
   const PLAYER_PRESETS = {
-    small: 250,
-    medium: 350,
-    large: 450,
-    full: 600,
+    small: 200,
+    medium: 300,
+    large: 400,
+    full: 550,
   };
 
-  // ========== PLAYER SIZE CONTROL WITH DRAG HANDLE ==========
+  // ========== PLAYER SIZE CONTROL ==========
 
   function createPlayerSizeControl() {
     if (document.getElementById("player-size-control")) return;
@@ -34,10 +32,9 @@
       <button data-size="medium">M</button>
       <button data-size="large" class="active">L</button>
       <button data-size="full">Full</button>
-      <span style="color: #666; margin: 0 8px;">|</span>
-      <span style="color: #888; font-size: 11px;">Height:</span>
+      <span style="color: #666; margin: 0 6px;">|</span>
       <button id="player-height-down">−</button>
-      <span id="player-height-value" style="color: #0f0; font-size: 12px; min-width: 45px; text-align: center;">400px</span>
+      <span id="player-height-value" style="color: #0f0; font-size: 11px; min-width: 40px; text-align: center;">350px</span>
       <button id="player-height-up">+</button>
     `;
 
@@ -47,53 +44,48 @@
     const savedHeight = localStorage.getItem("movieshows-player-height");
     if (savedHeight) {
       customPlayerHeight = parseInt(savedHeight, 10);
+      updateHeightDisplay();
     }
-    updateHeightDisplay();
 
-    // Preset buttons
+    const savedSize = localStorage.getItem("movieshows-player-size") || "large";
+    setPlayerSize(savedSize);
+
     control.querySelectorAll("button[data-size]").forEach((btn) => {
       btn.addEventListener("click", () => {
         const size = btn.dataset.size;
         customPlayerHeight = PLAYER_PRESETS[size];
         localStorage.setItem("movieshows-player-height", customPlayerHeight);
         updateHeightDisplay();
-        applyPlayerSizeToAll();
-
-        // Update active state
-        control
-          .querySelectorAll("button[data-size]")
-          .forEach((b) => b.classList.remove("active"));
-        btn.classList.add("active");
+        setPlayerSize(size);
+        applyCustomHeight();
       });
     });
 
-    // Height adjustment buttons
+    // Height +/- buttons
     document
       .getElementById("player-height-down")
       .addEventListener("click", () => {
         customPlayerHeight = Math.max(150, customPlayerHeight - 50);
         localStorage.setItem("movieshows-player-height", customPlayerHeight);
         updateHeightDisplay();
-        applyPlayerSizeToAll();
+        applyCustomHeight();
         clearPresetActive();
       });
 
     document
       .getElementById("player-height-up")
       .addEventListener("click", () => {
-        customPlayerHeight = Math.min(800, customPlayerHeight + 50);
+        customPlayerHeight = Math.min(700, customPlayerHeight + 50);
         localStorage.setItem("movieshows-player-height", customPlayerHeight);
         updateHeightDisplay();
-        applyPlayerSizeToAll();
+        applyCustomHeight();
         clearPresetActive();
       });
   }
 
   function updateHeightDisplay() {
     const display = document.getElementById("player-height-value");
-    if (display) {
-      display.textContent = customPlayerHeight + "px";
-    }
+    if (display) display.textContent = customPlayerHeight + "px";
   }
 
   function clearPresetActive() {
@@ -105,7 +97,18 @@
     }
   }
 
-  // ========== DRAG HANDLE FOR PLAYER RESIZE ==========
+  function applyCustomHeight() {
+    const heightPx = customPlayerHeight + "px";
+    const iframes = document.querySelectorAll('iframe[src*="youtube"]');
+    iframes.forEach((iframe) => {
+      iframe.style.setProperty("height", heightPx, "important");
+      iframe.style.setProperty("min-height", heightPx, "important");
+      iframe.style.setProperty("max-height", heightPx, "important");
+    });
+    positionDragHandle();
+  }
+
+  // ========== DRAG HANDLE ==========
 
   let isDragging = false;
   let dragStartY = 0;
@@ -116,15 +119,13 @@
 
     const handle = document.createElement("div");
     handle.id = "player-drag-handle";
-    handle.innerHTML = `<span>⋯ Drag to resize player ⋯</span>`;
+    handle.innerHTML = `<span>⋯ Drag to resize ⋯</span>`;
     document.body.appendChild(handle);
 
     handle.addEventListener("mousedown", startDrag);
     handle.addEventListener("touchstart", startDrag, { passive: false });
-
     document.addEventListener("mousemove", onDrag);
     document.addEventListener("touchmove", onDrag, { passive: false });
-
     document.addEventListener("mouseup", stopDrag);
     document.addEventListener("touchend", stopDrag);
   }
@@ -132,8 +133,6 @@
   function positionDragHandle() {
     const handle = document.getElementById("player-drag-handle");
     if (!handle) return;
-
-    // Find the player area and position handle below it
     const iframe = document.querySelector('iframe[src*="youtube"]');
     if (iframe) {
       const rect = iframe.getBoundingClientRect();
@@ -154,14 +153,11 @@
   function onDrag(e) {
     if (!isDragging) return;
     e.preventDefault();
-
     const currentY = e.type === "touchmove" ? e.touches[0].clientY : e.clientY;
     const delta = currentY - dragStartY;
-    customPlayerHeight = Math.max(150, Math.min(800, dragStartHeight + delta));
-
+    customPlayerHeight = Math.max(150, Math.min(700, dragStartHeight + delta));
     updateHeightDisplay();
-    applyPlayerSizeToAll();
-    positionDragHandle();
+    applyCustomHeight();
     clearPresetActive();
   }
 
@@ -174,139 +170,23 @@
     }
   }
 
-  // ========== TEXT POSITION DEBUG PANEL ==========
+  function setPlayerSize(size) {
+    document.body.classList.remove(
+      "player-small",
+      "player-medium",
+      "player-large",
+      "player-full",
+    );
+    document.body.classList.add(`player-${size}`);
 
-  let currentTextPosition = "A";
-
-  const TEXT_POSITIONS = {
-    A: { bottom: "180px", description: "180px from bottom" },
-    B: { bottom: "200px", description: "200px from bottom" },
-    C: { bottom: "220px", description: "220px from bottom" },
-    D: { bottom: "160px", description: "160px from bottom" },
-    E: { bottom: "140px", description: "140px from bottom" },
-    F: { bottom: "250px", description: "250px from bottom" },
-  };
-
-  function createTextPositionDebug() {
-    if (document.getElementById("text-position-debug")) return;
-
-    const debug = document.createElement("div");
-    debug.id = "text-position-debug";
-    debug.innerHTML = `
-      <span style="color: #888; font-size: 10px;">Text Pos:</span>
-      <button data-pos="A" class="active">A</button>
-      <button data-pos="B">B</button>
-      <button data-pos="C">C</button>
-      <button data-pos="D">D</button>
-      <button data-pos="E">E</button>
-      <button data-pos="F">F</button>
-      <span id="text-pos-info" style="color: #0f0; font-size: 9px; margin-left: 5px;">180px</span>
-    `;
-
-    document.body.appendChild(debug);
-
-    debug.querySelectorAll("button").forEach((btn) => {
-      btn.addEventListener("click", () => {
-        const pos = btn.dataset.pos;
-        setTextPosition(pos);
+    const control = document.getElementById("player-size-control");
+    if (control) {
+      control.querySelectorAll("button[data-size]").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.size === size);
       });
-    });
-  }
-
-  function setTextPosition(pos) {
-    currentTextPosition = pos;
-    const config = TEXT_POSITIONS[pos];
-
-    // Update button states
-    const debug = document.getElementById("text-position-debug");
-    if (debug) {
-      debug.querySelectorAll("button").forEach((btn) => {
-        btn.classList.toggle("active", btn.dataset.pos === pos);
-      });
-      const info = debug.querySelector("#text-pos-info");
-      if (info) info.textContent = config.description;
     }
 
-    // Apply to info sections via JavaScript
-    applyTextPosition(config.bottom);
-
-    console.log("[MovieShows] Text position:", pos, config.description);
-  }
-
-  function applyTextPosition(bottomValue) {
-    // Find the info container - it has class pattern like:
-    // "absolute bottom-4 left-4 right-16 z-30 flex flex-col gap-2 pointer-events-none"
-
-    let foundCount = 0;
-
-    // Find all h2 elements (movie titles) and work up to find their container
-    const titles = document.querySelectorAll("h2");
-    titles.forEach((h2) => {
-      // Find the nearest absolute positioned ancestor
-      let container = h2.closest('[class*="absolute"]');
-      if (container && container.className.includes("bottom-")) {
-        // Don't mess with containers that have overflow-x (poster bar)
-        if (!container.className.includes("overflow-x")) {
-          container.style.setProperty("bottom", bottomValue, "important");
-          foundCount++;
-        }
-      }
-    });
-
-    console.log(
-      "[MovieShows] Text position applied to",
-      foundCount,
-      "containers, bottom:",
-      bottomValue,
-    );
-  }
-
-  function applyPlayerSizeToAll() {
-    const heightPx = customPlayerHeight + "px";
-
-    // Find ALL YouTube iframes on the page
-    const iframes = document.querySelectorAll("iframe");
-    iframes.forEach((iframe) => {
-      const src = iframe.src || "";
-      if (src.includes("youtube")) {
-        // Apply size to the iframe itself
-        iframe.style.setProperty("height", heightPx, "important");
-        iframe.style.setProperty("min-height", heightPx, "important");
-        iframe.style.setProperty("max-height", heightPx, "important");
-
-        // AGGRESSIVELY walk up the DOM tree and resize ALL parent containers
-        // until we hit the main scroll container or body
-        let parent = iframe.parentElement;
-        let depth = 0;
-        while (parent && depth < 15) {
-          const className = parent.className || "";
-          const tagName = parent.tagName.toLowerCase();
-
-          // Stop at main layout containers
-          if (
-            className.includes("snap-y") ||
-            className.includes("overflow-y-scroll") ||
-            tagName === "body" ||
-            tagName === "html"
-          ) {
-            break;
-          }
-
-          // Force height on this container (but don't change overflow - it breaks scrolling)
-          parent.style.setProperty("height", heightPx, "important");
-          parent.style.setProperty("min-height", heightPx, "important");
-          parent.style.setProperty("max-height", "none", "important");
-
-          parent = parent.parentElement;
-          depth++;
-        }
-      }
-    });
-
-    // Update drag handle position
-    positionDragHandle();
-
-    console.log("[MovieShows] Player height set to:", heightPx);
+    console.log("[MovieShows] Player size:", size);
   }
 
   function injectStyles() {
@@ -336,10 +216,10 @@
         background: rgba(255, 255, 255, 0.1);
         border: 1px solid rgba(255, 255, 255, 0.2);
         color: #aaa;
-        padding: 4px 12px;
+        padding: 4px 10px;
         border-radius: 10px;
         cursor: pointer;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: bold;
         transition: all 0.2s;
       }
@@ -349,19 +229,12 @@
         color: white;
       }
 
-      #player-size-control button.active {
-        background: #22c55e;
-        border-color: #22c55e;
-        color: black;
-      }
-
       #player-height-down, #player-height-up {
         padding: 4px 10px !important;
-        font-size: 16px !important;
-        line-height: 1 !important;
+        font-size: 14px !important;
       }
 
-      /* Drag handle for player resize */
+      /* Drag handle */
       #player-drag-handle {
         position: fixed;
         left: 50%;
@@ -370,74 +243,132 @@
         display: none;
         align-items: center;
         justify-content: center;
-        width: 200px;
-        height: 20px;
+        width: 180px;
+        height: 18px;
         background: linear-gradient(to bottom, rgba(34, 197, 94, 0.8), rgba(34, 197, 94, 0.4));
         border-radius: 0 0 10px 10px;
         cursor: ns-resize;
         user-select: none;
         font-size: 10px;
         color: white;
-        text-shadow: 0 1px 2px rgba(0,0,0,0.5);
-        transition: background 0.2s;
       }
 
       #player-drag-handle:hover {
-        background: linear-gradient(to bottom, rgba(34, 197, 94, 1), rgba(34, 197, 94, 0.6));
+        background: linear-gradient(to bottom, rgba(34, 197, 94, 1), rgba(34, 197, 94, 0.7));
       }
 
-      #player-drag-handle:active {
-        background: linear-gradient(to bottom, rgba(250, 204, 21, 1), rgba(250, 204, 21, 0.6));
-      }
-
-      /* Text position debug panel */
-      #text-position-debug {
-        position: fixed;
-        bottom: 8px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9999;
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        background: rgba(0, 0, 0, 0.95);
-        padding: 6px 12px;
-        border-radius: 20px;
-        backdrop-filter: blur(10px);
-        border: 1px solid rgba(255, 200, 0, 0.4);
-      }
-
-      #text-position-debug button {
-        background: rgba(255, 255, 255, 0.1);
-        border: 1px solid rgba(255, 255, 255, 0.2);
-        color: #aaa;
-        padding: 3px 10px;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 11px;
-        font-weight: bold;
-        transition: all 0.2s;
-      }
-
-      #text-position-debug button:hover {
-        background: rgba(255, 200, 0, 0.3);
-        color: white;
-      }
-
-      #text-position-debug button.active {
-        background: #f59e0b;
-        border-color: #f59e0b;
+      #player-size-control button.active {
+        background: #22c55e;
+        border-color: #22c55e;
         color: black;
       }
 
-      /* Title styling - ensure readability */
-      h2 {
-        text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7) !important;
+      /* ===== FIX: Add padding-top to push content down so player is visible ===== */
+
+      /* Small - Add padding to push video into view */
+      .player-small .snap-center {
+        padding-top: 60px !important;
       }
 
-      /* Description - ensure readability */
-      p {
-        text-shadow: 0 1px 6px rgba(0,0,0,0.9) !important;
+      .player-small iframe[src*="youtube"] {
+        height: 25vh !important;
+        max-height: 200px !important;
+        min-height: 150px !important;
+      }
+
+      /* Medium */
+      .player-medium .snap-center {
+        padding-top: 50px !important;
+      }
+
+      .player-medium iframe[src*="youtube"] {
+        height: 35vh !important;
+        max-height: 300px !important;
+        min-height: 200px !important;
+      }
+
+      /* Large (default) */
+      .player-large .snap-center {
+        padding-top: 40px !important;
+      }
+
+      .player-large iframe[src*="youtube"] {
+        height: 45vh !important;
+        max-height: 400px !important;
+        min-height: 280px !important;
+      }
+
+      /* Full - minimal padding, more video */
+      .player-full .snap-center {
+        padding-top: 30px !important;
+      }
+
+      .player-full iframe[src*="youtube"] {
+        height: 60vh !important;
+        max-height: 70vh !important;
+        min-height: 400px !important;
+      }
+
+      /* ===== Ensure title/info section is always visible ===== */
+
+      /* The info section at bottom-left */
+      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
+        position: relative !important;
+        bottom: auto !important;
+        left: auto !important;
+        padding: 12px 16px !important;
+        background: linear-gradient(to top, rgba(0,0,0,0.9), transparent) !important;
+        margin-top: -80px !important;
+        z-index: 40 !important;
+      }
+
+      /* For Full mode - show a compact info bar */
+      .player-full [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
+        margin-top: -60px !important;
+        padding: 8px 16px !important;
+      }
+
+      /* Title should always be visible */
+      h2[class*="text-2xl"],
+      .text-2xl.font-bold {
+        font-size: 1.25rem !important;
+        margin-bottom: 4px !important;
+      }
+
+      .player-full h2[class*="text-2xl"],
+      .player-full .text-2xl.font-bold {
+        font-size: 1.1rem !important;
+      }
+
+      /* Description text */
+      [class*="line-clamp"] {
+        -webkit-line-clamp: 3 !important;
+        line-clamp: 3 !important;
+        font-size: 0.85rem !important;
+      }
+
+      .player-full [class*="line-clamp"] {
+        -webkit-line-clamp: 2 !important;
+        line-clamp: 2 !important;
+        font-size: 0.8rem !important;
+      }
+
+      .player-small [class*="line-clamp"] {
+        -webkit-line-clamp: 4 !important;
+        line-clamp: 4 !important;
+      }
+
+      /* Badge row */
+      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="IMDb"]),
+      [class*="flex"][class*="items-center"][class*="gap-2"]:has([class*="bg-yellow"]) {
+        flex-wrap: wrap !important;
+        gap: 4px !important;
+        margin-bottom: 4px !important;
+      }
+
+      /* Genre tags */
+      [class*="flex"][class*="flex-wrap"][class*="gap-2"]:has([class*="rounded-full"]) {
+        margin-top: 4px !important;
       }
     `;
 
@@ -512,10 +443,6 @@
     });
 
     currentIndex = index;
-
-    // Re-apply player size after scroll (new iframe may have loaded)
-    setTimeout(applyPlayerSizeToAll, 300);
-
     console.log("[MovieShows] Scrolled to video", index + 1);
   }
 
@@ -525,8 +452,6 @@
     const newIndex = getCurrentVisibleIndex();
     if (newIndex !== currentIndex) {
       currentIndex = newIndex;
-      // Apply size to any new iframes
-      setTimeout(applyPlayerSizeToAll, 100);
     }
   }
 
@@ -706,24 +631,6 @@
     }
   }
 
-  // Watch for DOM changes and apply player size to new iframes
-  function setupIframeObserver() {
-    const observer = new MutationObserver((mutations) => {
-      let hasNewNodes = false;
-      for (const mutation of mutations) {
-        if (mutation.addedNodes.length > 0) {
-          hasNewNodes = true;
-          break;
-        }
-      }
-      if (hasNewNodes) {
-        setTimeout(applyPlayerSizeToAll, 200);
-      }
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-  }
-
   function init() {
     if (initialized) return;
 
@@ -732,8 +639,6 @@
     injectStyles();
     createPlayerSizeControl();
     createDragHandle();
-    createTextPositionDebug();
-    setupIframeObserver();
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
@@ -759,32 +664,19 @@
 
     currentIndex = getCurrentVisibleIndex();
 
-    // Apply initial player size from saved value or default
-    const savedHeight = localStorage.getItem("movieshows-player-height");
-    if (savedHeight) {
-      customPlayerHeight = parseInt(savedHeight, 10);
-      updateHeightDisplay();
-    }
-
-    // Delay initial apply to let iframe load
-    setTimeout(() => {
-      applyPlayerSizeToAll();
-    }, 1000);
-
-    // Apply initial text position
-    setTextPosition("A");
-
-    // Keep applying size and text position periodically to catch new content
-    setInterval(() => {
-      applyPlayerSizeToAll();
-      applyTextPosition(TEXT_POSITIONS[currentTextPosition].bottom);
-    }, 2000);
-
     setTimeout(() => {
       if (!clickQueuePlayButton()) {
         setTimeout(clickQueuePlayButton, 2000);
       }
     }, 2000);
+
+    // Apply custom height after a delay to let iframe load
+    setTimeout(() => {
+      applyCustomHeight();
+    }, 3000);
+
+    // Periodically reapply custom height for new iframes
+    setInterval(applyCustomHeight, 2000);
 
     initialized = true;
     console.log(
