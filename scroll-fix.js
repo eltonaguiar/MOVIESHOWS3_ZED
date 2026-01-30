@@ -14,27 +14,23 @@
   // ========== PLAYER SIZE CONTROL ==========
 
   function createPlayerSizeControl() {
-    // Check if already exists
     if (document.getElementById("player-size-control")) return;
 
     const control = document.createElement("div");
     control.id = "player-size-control";
     control.innerHTML = `
-      <span style="color: #888; font-size: 11px; margin-right: 8px;">Player Size:</span>
+      <span style="color: #888; font-size: 11px; margin-right: 8px;">Player:</span>
       <button data-size="small">S</button>
-      <button data-size="medium" class="active">M</button>
-      <button data-size="large">L</button>
-      <button data-size="fullscreen">XL</button>
+      <button data-size="medium">M</button>
+      <button data-size="large" class="active">L</button>
+      <button data-size="fullscreen">Full</button>
     `;
 
     document.body.appendChild(control);
 
-    // Load saved preference
-    const savedSize =
-      localStorage.getItem("movieshows-player-size") || "medium";
+    const savedSize = localStorage.getItem("movieshows-player-size") || "large";
     setPlayerSize(savedSize);
 
-    // Add click handlers
     control.querySelectorAll("button").forEach((btn) => {
       btn.addEventListener("click", () => {
         const size = btn.dataset.size;
@@ -47,17 +43,14 @@
   }
 
   function setPlayerSize(size) {
-    // Remove all size classes
     document.body.classList.remove(
       "player-small",
       "player-medium",
       "player-large",
       "player-fullscreen",
     );
-    // Add the selected size class
     document.body.classList.add(`player-${size}`);
 
-    // Update button states
     const control = document.getElementById("player-size-control");
     if (control) {
       control.querySelectorAll("button").forEach((btn) => {
@@ -74,17 +67,17 @@
     const style = document.createElement("style");
     style.id = "movieshows-custom-styles";
     style.textContent = `
-      /* Player size control button styling */
+      /* Player size control styling */
       #player-size-control {
         position: fixed;
-        top: 10px;
+        top: 8px;
         left: 50%;
         transform: translateX(-50%);
         z-index: 9999;
         display: flex;
         align-items: center;
         gap: 6px;
-        background: rgba(0, 0, 0, 0.85);
+        background: rgba(0, 0, 0, 0.9);
         padding: 6px 14px;
         border-radius: 20px;
         backdrop-filter: blur(10px);
@@ -114,52 +107,137 @@
         color: black;
       }
 
-      /* Fix text overlap - ensure description area has proper layout */
+      /* ===== SMALL PLAYER ===== */
+      .player-small iframe[src*="youtube.com"],
+      .player-small iframe[data-active="true"] {
+        max-height: 25vh !important;
+        height: 25vh !important;
+      }
+
       .player-small .snap-center > div:first-child {
-        max-height: 35vh !important;
+        max-height: 30vh !important;
+      }
+
+      .player-small [class*="group/player"] {
+        max-height: 30vh !important;
+      }
+
+      /* ===== MEDIUM PLAYER ===== */
+      .player-medium iframe[src*="youtube.com"],
+      .player-medium iframe[data-active="true"] {
+        max-height: 40vh !important;
+        height: 40vh !important;
       }
 
       .player-medium .snap-center > div:first-child {
-        max-height: 50vh !important;
+        max-height: 45vh !important;
+      }
+
+      .player-medium [class*="group/player"] {
+        max-height: 45vh !important;
+      }
+
+      /* ===== LARGE PLAYER ===== */
+      .player-large iframe[src*="youtube.com"],
+      .player-large iframe[data-active="true"] {
+        max-height: 55vh !important;
+        height: 55vh !important;
       }
 
       .player-large .snap-center > div:first-child {
-        max-height: 65vh !important;
+        max-height: 60vh !important;
+      }
+
+      .player-large [class*="group/player"] {
+        max-height: 60vh !important;
+      }
+
+      /* ===== FULLSCREEN PLAYER ===== */
+      .player-fullscreen iframe[src*="youtube.com"],
+      .player-fullscreen iframe[data-active="true"] {
+        max-height: 75vh !important;
+        height: 75vh !important;
       }
 
       .player-fullscreen .snap-center > div:first-child {
         max-height: 80vh !important;
       }
 
-      /* Ensure the info section at bottom doesn't overlap */
-      [class*="absolute"][class*="bottom-4"][class*="left-4"] {
-        max-height: 35vh !important;
-        overflow-y: auto !important;
-        padding-bottom: 10px !important;
+      .player-fullscreen [class*="group/player"] {
+        max-height: 80vh !important;
       }
 
-      /* Make text more readable */
-      [class*="line-clamp-3"] {
-        -webkit-line-clamp: 4 !important;
-        line-clamp: 4 !important;
-      }
-
-      /* Adjust for smaller player - move info up */
-      .player-small [class*="absolute"][class*="bottom-4"][class*="left-4"] {
-        bottom: 200px !important;
-      }
-
-      /* Adjust for larger player - keep info at bottom */
-      .player-large [class*="absolute"][class*="bottom-4"][class*="left-4"],
-      .player-fullscreen [class*="absolute"][class*="bottom-4"][class*="left-4"] {
-        bottom: 80px !important;
+      /* Fix the parent container that holds the iframe */
+      .player-small [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
+        height: 25vh !important;
         max-height: 25vh !important;
       }
 
-      /* Poster carousel should not overlap */
-      [class*="flex"][class*="gap-2"][class*="overflow-x"] {
+      .player-medium [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
+        height: 40vh !important;
+        max-height: 40vh !important;
+      }
+
+      .player-large [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
+        height: 55vh !important;
+        max-height: 55vh !important;
+      }
+
+      .player-fullscreen [class*="relative"][class*="w-full"][class*="h-full"][class*="max-w"] {
+        height: 75vh !important;
+        max-height: 75vh !important;
+      }
+
+      /* Target the snap-center slide's inner container */
+      .player-small .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
+        height: 30vh !important;
         position: relative !important;
-        z-index: 10 !important;
+      }
+
+      .player-medium .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
+        height: 45vh !important;
+        position: relative !important;
+      }
+
+      .player-large .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
+        height: 60vh !important;
+        position: relative !important;
+      }
+
+      .player-fullscreen .snap-center [class*="absolute"][class*="inset-0"]:has(iframe) {
+        height: 80vh !important;
+        position: relative !important;
+      }
+
+      /* Ensure info section doesn't overlap */
+      [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
+        position: relative !important;
+        bottom: auto !important;
+        left: auto !important;
+        padding: 16px !important;
+        margin-top: 10px !important;
+      }
+
+      /* Make snap-center slides flex column */
+      .snap-center {
+        display: flex !important;
+        flex-direction: column !important;
+        height: 100% !important;
+      }
+
+      .snap-center > div:first-child {
+        flex-shrink: 0 !important;
+      }
+
+      /* Text should not overlap with poster row */
+      [class*="line-clamp"] {
+        -webkit-line-clamp: 3 !important;
+      }
+
+      /* Poster carousel at bottom */
+      [class*="2026 HOT PICKS"],
+      [class*="hot-picks"] {
+        margin-top: auto !important;
       }
     `;
 
@@ -264,7 +342,6 @@
   function handleWheel(e) {
     const target = e.target;
 
-    // Don't intercept scrolling in control areas
     if (
       target.closest("#player-size-control") ||
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
@@ -350,18 +427,21 @@
           }, SCROLL_COOLDOWN);
         }
         return;
-      // Player size shortcuts
       case "1":
-        if (!e.target.closest("input, textarea")) setPlayerSize("small");
+        setPlayerSize("small");
+        localStorage.setItem("movieshows-player-size", "small");
         return;
       case "2":
-        if (!e.target.closest("input, textarea")) setPlayerSize("medium");
+        setPlayerSize("medium");
+        localStorage.setItem("movieshows-player-size", "medium");
         return;
       case "3":
-        if (!e.target.closest("input, textarea")) setPlayerSize("large");
+        setPlayerSize("large");
+        localStorage.setItem("movieshows-player-size", "large");
         return;
       case "4":
-        if (!e.target.closest("input, textarea")) setPlayerSize("fullscreen");
+        setPlayerSize("fullscreen");
+        localStorage.setItem("movieshows-player-size", "fullscreen");
         return;
     }
 
@@ -426,7 +506,6 @@
 
     console.log("[MovieShows] Initializing...");
 
-    // Inject styles and create player size control first
     injectStyles();
     createPlayerSizeControl();
 
@@ -472,7 +551,7 @@
     initialized = true;
     console.log("[MovieShows] Ready! Controls:");
     console.log("  - Scroll: Mouse wheel, Arrow Up/Down, J/K, swipe");
-    console.log("  - Player size: 1/2/3/4 keys or click S/M/L/XL buttons");
+    console.log("  - Player size: 1/2/3/4 keys or S/M/L/Full buttons");
   }
 
   function setupMutationObserver() {
