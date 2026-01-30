@@ -234,70 +234,31 @@
   }
 
   function applyTextPosition(bottomValue) {
-    // Target the specific info container class pattern found in the compiled code:
+    // Find the info container - it has class pattern like:
     // "absolute bottom-4 left-4 right-16 z-30 flex flex-col gap-2 pointer-events-none"
 
-    // Method 1: Find by exact class pattern
-    const infoContainers = document.querySelectorAll(
-      '[class*="bottom-4"][class*="left-4"][class*="z-30"]',
-    );
+    let foundCount = 0;
 
-    infoContainers.forEach((container) => {
-      // Make sure it's not the poster bar (which has overflow-x-auto)
-      if (
-        !container.className.includes("overflow-x-auto") &&
-        !container.querySelector('[class*="overflow-x-auto"]')
-      ) {
-        container.style.setProperty("bottom", bottomValue, "important");
-        console.log(
-          "[MovieShows] Applied text position to:",
-          container.className.substring(0, 50),
-        );
-      }
-    });
-
-    // Method 2: Find the description container by its unique class
-    const descContainers = document.querySelectorAll('[class*="group/desc"]');
-    descContainers.forEach((desc) => {
-      // Find parent that has absolute positioning
-      let parent = desc.parentElement;
-      for (let i = 0; i < 5 && parent; i++) {
-        if (parent.className && parent.className.includes("absolute")) {
-          parent.style.setProperty("bottom", bottomValue, "important");
-          console.log(
-            "[MovieShows] Applied text position via group/desc parent",
-          );
-          break;
+    // Find all h2 elements (movie titles) and work up to find their container
+    const titles = document.querySelectorAll("h2");
+    titles.forEach((h2) => {
+      // Find the nearest absolute positioned ancestor
+      let container = h2.closest('[class*="absolute"]');
+      if (container && container.className.includes("bottom-")) {
+        // Don't mess with containers that have overflow-x (poster bar)
+        if (!container.className.includes("overflow-x")) {
+          container.style.setProperty("bottom", bottomValue, "important");
+          foundCount++;
         }
-        parent = parent.parentElement;
       }
     });
 
-    // Method 3: Find any element with pointer-events-none that contains h2 or text
-    const allElements = document.querySelectorAll(
-      '[class*="pointer-events-none"]',
+    console.log(
+      "[MovieShows] Text position applied to",
+      foundCount,
+      "containers, bottom:",
+      bottomValue,
     );
-    allElements.forEach((el) => {
-      if (el.querySelector("h2") && el.className.includes("absolute")) {
-        el.style.setProperty("bottom", bottomValue, "important");
-        console.log(
-          "[MovieShows] Applied text position via pointer-events-none",
-        );
-      }
-    });
-
-    // Method 4: Direct search for the flex-col container with movie info
-    const flexCols = document.querySelectorAll(
-      '[class*="flex-col"][class*="gap-"]',
-    );
-    flexCols.forEach((el) => {
-      const hasH2 = el.querySelector("h2");
-      const parent = el.closest('[class*="absolute"]');
-      if (hasH2 && parent && !parent.className.includes("overflow-x")) {
-        parent.style.setProperty("bottom", bottomValue, "important");
-        console.log("[MovieShows] Applied text position via flex-col parent");
-      }
-    });
   }
 
   function applyPlayerSizeToAll() {
@@ -469,44 +430,14 @@
         color: black;
       }
 
-      /* Fix info section to not overlap with poster carousel */
-      /* Target the exact class pattern: "absolute bottom-4 left-4 right-16 z-30 flex flex-col" */
-      [class*="bottom-4"][class*="left-4"][class*="z-30"][class*="flex-col"] {
-        bottom: 200px !important;
-        z-index: 40 !important;
-      }
-
-      /* Also target by pointer-events-none which wraps the info */
-      [class*="absolute"][class*="pointer-events-none"][class*="flex-col"] {
-        bottom: 200px !important;
-      }
-
-      /* Target group/desc container */
-      [class*="group/desc"] {
-        position: relative !important;
-        z-index: 40 !important;
-      }
-
-      /* Make sure the poster carousel stays at the bottom */
-      [class*="overflow-x-auto"] {
-        z-index: 30 !important;
-      }
-
       /* Title styling - ensure readability */
-      h2[class*="text-2xl"],
-      h2[class*="font-bold"] {
+      h2 {
         text-shadow: 0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.7) !important;
       }
 
       /* Description - ensure readability */
-      [class*="line-clamp"] {
+      p {
         text-shadow: 0 1px 6px rgba(0,0,0,0.9) !important;
-      }
-
-      /* Genre/tag badges */
-      [class*="text-xs"][class*="px-"],
-      [class*="rounded"][class*="bg-"] {
-        text-shadow: none !important;
       }
     `;
 
