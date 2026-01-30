@@ -36,51 +36,131 @@
     );
   }
 
-  // Find and click the "Next Up" button on a slide to queue the video
-  function activateVideo(slide) {
-    if (!slide) return false;
+  // Find and click the Play button in the Queue panel (right side)
+  function clickQueuePlayButton() {
+    console.log("[MovieShows] Looking for Queue play button...");
 
-    // Look for the "Next Up" button (has text "Next Up" and a queue icon)
-    const buttons = slide.querySelectorAll("button");
-    for (const btn of buttons) {
-      const text = btn.textContent?.trim().toLowerCase();
-      if (text === "next up" || text === "in queue") {
-        console.log("[MovieShows] Found Next Up button, clicking...");
-        btn.click();
-        return true;
+    // The Queue panel has items with play buttons (▷ triangle icons)
+    // Look for the play button SVG or button near queue items
+
+    // Find the Queue panel - it contains "Queue" text and has the playlist
+    const queuePanel =
+      document.querySelector('[class*="Queue"]') ||
+      document
+        .evaluate(
+          "//div[contains(text(), 'Queue')]",
+          document,
+          null,
+          XPathResult.FIRST_ORDERED_NODE_TYPE,
+          null,
+        )
+        .singleNodeValue?.closest('div[class*="fixed"]') ||
+      document.querySelector('[class*="fixed"][class*="right-0"]');
+
+    if (queuePanel) {
+      console.log("[MovieShows] Found Queue panel");
+
+      // Find play buttons (usually SVG triangles or buttons with play icon)
+      // The play icon is typically a right-pointing triangle ▷
+      const playButtons = queuePanel.querySelectorAll(
+        'button, [role="button"], svg',
+      );
+
+      for (const btn of playButtons) {
+        // Check if it's a play button by looking for triangle/play path or aria-label
+        const isPlayButton =
+          btn.querySelector('path[d*="M"]') || // SVG play icon
+          btn.querySelector("polygon") || // Triangle
+          btn.getAttribute("aria-label")?.toLowerCase().includes("play") ||
+          btn.className?.includes("play");
+
+        // Also check if parent is a button-like element
+        const parent =
+          btn.closest("button") ||
+          btn.closest('[role="button"]') ||
+          btn.closest('[class*="cursor-pointer"]');
+
+        if (
+          parent &&
+          !parent.querySelector('[class*="trash"]') &&
+          !parent.querySelector('[class*="delete"]')
+        ) {
+          // Skip if it's the main "Play Queue" button at bottom
+          if (
+            parent.textContent?.includes("Play Queue") ||
+            parent.textContent?.includes("Shuffle")
+          ) {
+            continue;
+          }
+
+          // This might be the individual play button next to a queue item
+          console.log("[MovieShows] Found potential play button, clicking...");
+          parent.click();
+          return true;
+        }
       }
     }
 
-    // Alternative: look for any clickable element that might trigger the video
-    const clickable = slide.querySelector('[class*="cursor-pointer"]');
-    if (clickable) {
-      console.log("[MovieShows] Found clickable element, clicking...");
-      clickable.click();
+    // Alternative: Find any element that looks like a play button near queue items
+    // Queue items have poster images and play/delete buttons
+    const queueItems = document.querySelectorAll(
+      '[class*="draggable"], [class*="queue-item"], [class*="flex"][class*="gap"]',
+    );
+
+    for (const item of queueItems) {
+      // Look for the small play button (not the big Play Queue button)
+      const buttons = item.querySelectorAll(
+        'button, [class*="cursor-pointer"]',
+      );
+      for (const btn of buttons) {
+        // Check for play icon (triangle SVG)
+        const svg = btn.querySelector("svg");
+        if (svg) {
+          const path = svg.querySelector("path");
+          if (path) {
+            const d = path.getAttribute("d") || "";
+            // Play icons typically have a triangular path
+            if (
+              d.includes("M") &&
+              (d.includes("l") || d.includes("L")) &&
+              !d.includes("rect")
+            ) {
+              // Check it's not a trash/delete icon
+              if (
+                !btn.closest('[class*="trash"]') &&
+                !btn.textContent?.includes("delete")
+              ) {
+                console.log(
+                  "[MovieShows] Found play button via SVG, clicking...",
+                );
+                btn.click();
+                return true;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Last resort: Find the "Play Queue" button and click it
+    const playQueueBtn = document.evaluate(
+      "//button[contains(., 'Play Queue')]",
+      document,
+      null,
+      XPathResult.FIRST_ORDERED_NODE_TYPE,
+      null,
+    ).singleNodeValue;
+    if (playQueueBtn) {
+      console.log("[MovieShows] Found Play Queue button, clicking...");
+      playQueueBtn.click();
       return true;
     }
 
-    return false;
-  }
-
-  // Simulate clicking on a poster thumbnail to select a video
-  function clickPosterThumbnail(index = 0) {
-    // Find the horizontal poster strip/carousel
-    const posterContainers = document.querySelectorAll(
-      '[class*="flex-shrink-0"][class*="cursor-pointer"]',
-    );
-    if (posterContainers.length > index) {
-      console.log("[MovieShows] Clicking poster thumbnail", index);
-      posterContainers[index].click();
-      return true;
-    }
-
-    // Alternative: find poster images in a scrollable row
-    const posters = document.querySelectorAll(
-      '[class*="aspect-"][class*="rounded"][class*="cursor-pointer"]',
-    );
-    if (posters.length > index) {
-      console.log("[MovieShows] Clicking poster", index);
-      posters[index].click();
+    // Alternative: look for green "Play Queue" button
+    const greenPlayBtn = document.querySelector('button[class*="bg-green"]');
+    if (greenPlayBtn && greenPlayBtn.textContent?.includes("Play")) {
+      console.log("[MovieShows] Found green Play button, clicking...");
+      greenPlayBtn.click();
       return true;
     }
 
@@ -142,19 +222,18 @@
   function handleWheel(e) {
     const target = e.target;
 
-    // Don't intercept scrolling in nested scrollable areas
+    // Don't intercept scrolling in nested scrollable areas (like the queue panel)
     if (
       target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
       target.closest('[class*="custom-scrollbar"]') ||
+      target.closest('[class*="Queue"]') ||
+      target.closest('[class*="fixed"][class*="right"]') ||
       target.closest("select")
     ) {
       return;
     }
 
-    if (!scrollContainer?.contains(target) && target !== scrollContainer) {
-      const containerRect = scrollContainer?.getBoundingClientRect();
-      if (!containerRect) return;
-    }
+    if (!scrollContainer) return;
 
     if (isScrolling) {
       e.preventDefault();
@@ -307,52 +386,6 @@
     return observer;
   }
 
-  // Auto-play first video by clicking the "Next Up" then triggering play
-  function autoPlayFirstVideo() {
-    console.log("[MovieShows] Attempting to auto-activate first video...");
-
-    // First, try clicking a poster thumbnail to select a video
-    if (clickPosterThumbnail(0)) {
-      console.log("[MovieShows] Clicked first poster thumbnail");
-
-      // After a short delay, find and click the play area or Next Up button
-      setTimeout(() => {
-        if (videoSlides.length > 0) {
-          const firstSlide = videoSlides[0];
-
-          // Try to find the main video/play area and click it
-          const videoArea =
-            firstSlide.querySelector("iframe") ||
-            firstSlide.querySelector('[class*="aspect-video"]') ||
-            firstSlide.querySelector('[class*="w-full"][class*="h-full"]');
-          if (videoArea) {
-            console.log("[MovieShows] Found video area");
-            // Don't click iframe directly, look for a play button or overlay
-            const playButton =
-              firstSlide.querySelector('button[class*="play"]') ||
-              firstSlide.querySelector('[class*="play"]');
-            if (playButton) {
-              playButton.click();
-            }
-          }
-
-          // Also try clicking the "Next Up" button if it exists
-          activateVideo(firstSlide);
-        }
-      }, 500);
-
-      return true;
-    }
-
-    // Alternative: if no poster thumbnails, try clicking directly on the first slide
-    if (videoSlides.length > 0) {
-      activateVideo(videoSlides[0]);
-      return true;
-    }
-
-    return false;
-  }
-
   // Initialize everything
   function init() {
     if (initialized) return;
@@ -402,8 +435,15 @@
       }, 300);
     }
 
-    // Auto-activate first video after a delay
-    setTimeout(autoPlayFirstVideo, 1000);
+    // Auto-click the Play button in the Queue to activate scrolling
+    setTimeout(() => {
+      if (clickQueuePlayButton()) {
+        console.log("[MovieShows] Auto-activated queue playback");
+      } else {
+        console.log("[MovieShows] Could not find play button, trying again...");
+        setTimeout(clickQueuePlayButton, 2000);
+      }
+    }, 1500);
 
     initialized = true;
     console.log("[MovieShows] Scroll navigation ready!");
