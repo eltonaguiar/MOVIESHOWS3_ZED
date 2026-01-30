@@ -48,6 +48,96 @@
     });
   }
 
+  // ========== TEXT POSITION DEBUG PANEL ==========
+
+  let currentTextPosition = "A";
+
+  const TEXT_POSITIONS = {
+    A: { bottom: "180px", description: "180px from bottom" },
+    B: { bottom: "200px", description: "200px from bottom" },
+    C: { bottom: "220px", description: "220px from bottom" },
+    D: { bottom: "160px", description: "160px from bottom" },
+    E: { bottom: "140px", description: "140px from bottom" },
+    F: { bottom: "250px", description: "250px from bottom" },
+  };
+
+  function createTextPositionDebug() {
+    if (document.getElementById("text-position-debug")) return;
+
+    const debug = document.createElement("div");
+    debug.id = "text-position-debug";
+    debug.innerHTML = `
+      <span style="color: #888; font-size: 10px;">Text Pos:</span>
+      <button data-pos="A" class="active">A</button>
+      <button data-pos="B">B</button>
+      <button data-pos="C">C</button>
+      <button data-pos="D">D</button>
+      <button data-pos="E">E</button>
+      <button data-pos="F">F</button>
+      <span id="text-pos-info" style="color: #0f0; font-size: 9px; margin-left: 5px;">180px</span>
+    `;
+
+    document.body.appendChild(debug);
+
+    debug.querySelectorAll("button").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const pos = btn.dataset.pos;
+        setTextPosition(pos);
+      });
+    });
+  }
+
+  function setTextPosition(pos) {
+    currentTextPosition = pos;
+    const config = TEXT_POSITIONS[pos];
+
+    // Update button states
+    const debug = document.getElementById("text-position-debug");
+    if (debug) {
+      debug.querySelectorAll("button").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.pos === pos);
+      });
+      const info = debug.querySelector("#text-pos-info");
+      if (info) info.textContent = config.description;
+    }
+
+    // Apply to info sections via JavaScript
+    applyTextPosition(config.bottom);
+
+    console.log("[MovieShows] Text position:", pos, config.description);
+  }
+
+  function applyTextPosition(bottomValue) {
+    // Find info sections and apply position
+    const infoSections = document.querySelectorAll(
+      '[class*="absolute"][class*="bottom-"][class*="left-"][class*="z-30"], ' +
+        '[class*="absolute"][class*="bottom-"][class*="left-"][class*="flex-col"], ' +
+        '[class*="pointer-events-auto"][class*="max-w-"]',
+    );
+
+    infoSections.forEach((section) => {
+      // Only target sections that contain title/description, not the poster bar
+      if (
+        section.querySelector("h2") ||
+        section.querySelector('[class*="line-clamp"]')
+      ) {
+        section.style.setProperty("bottom", bottomValue, "important");
+      }
+    });
+
+    // Also try targeting by content - find elements containing movie info
+    const allAbsolute = document.querySelectorAll('[class*="absolute"]');
+    allAbsolute.forEach((el) => {
+      const hasTitle = el.querySelector("h2");
+      const hasBadges = el.querySelector('[class*="rounded"][class*="bg-"]');
+      const isNotPosterBar = !el.querySelector('[class*="overflow-x-auto"]');
+
+      if (hasTitle && hasBadges && isNotPosterBar) {
+        el.style.setProperty("bottom", bottomValue, "important");
+      }
+    });
+  }
+
   function setPlayerSize(size) {
     currentPlayerSize = size;
 
@@ -149,6 +239,46 @@
       #player-size-control button.active {
         background: #22c55e;
         border-color: #22c55e;
+        color: black;
+      }
+
+      /* Text position debug panel */
+      #text-position-debug {
+        position: fixed;
+        bottom: 8px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.95);
+        padding: 6px 12px;
+        border-radius: 20px;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 200, 0, 0.4);
+      }
+
+      #text-position-debug button {
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        color: #aaa;
+        padding: 3px 10px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 11px;
+        font-weight: bold;
+        transition: all 0.2s;
+      }
+
+      #text-position-debug button:hover {
+        background: rgba(255, 200, 0, 0.3);
+        color: white;
+      }
+
+      #text-position-debug button.active {
+        background: #f59e0b;
+        border-color: #f59e0b;
         color: black;
       }
 
@@ -500,6 +630,7 @@
 
     injectStyles();
     createPlayerSizeControl();
+    createTextPositionDebug();
     setupIframeObserver();
 
     scrollContainer = findScrollContainer();
@@ -530,8 +661,14 @@
     const savedSize = localStorage.getItem("movieshows-player-size") || "large";
     setPlayerSize(savedSize);
 
-    // Keep applying size periodically to catch new iframes
-    setInterval(applyPlayerSizeToAll, 2000);
+    // Apply initial text position
+    setTextPosition("A");
+
+    // Keep applying size and text position periodically to catch new content
+    setInterval(() => {
+      applyPlayerSizeToAll();
+      applyTextPosition(TEXT_POSITIONS[currentTextPosition].bottom);
+    }, 2000);
 
     setTimeout(() => {
       if (!clickQueuePlayButton()) {
