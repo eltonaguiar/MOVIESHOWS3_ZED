@@ -11,12 +11,12 @@
   let currentPlayerSize = "large";
   const SCROLL_COOLDOWN = 500;
 
-  // Player size configurations
+  // Player size configurations - larger values for better visibility
   const PLAYER_SIZES = {
-    small: { height: "25vh", minHeight: "180px", maxHeight: "220px" },
-    medium: { height: "40vh", minHeight: "280px", maxHeight: "350px" },
-    large: { height: "55vh", minHeight: "380px", maxHeight: "480px" },
-    full: { height: "75vh", minHeight: "500px", maxHeight: "85vh" },
+    small: { height: "30vh", minHeight: "200px", maxHeight: "280px" },
+    medium: { height: "45vh", minHeight: "320px", maxHeight: "420px" },
+    large: { height: "60vh", minHeight: "450px", maxHeight: "550px" },
+    full: { height: "80vh", minHeight: "550px", maxHeight: "90vh" },
   };
 
   // ========== PLAYER SIZE CONTROL ==========
@@ -59,7 +59,10 @@
       });
     }
 
-    // Apply size to all iframes immediately
+    // Set data attribute on body for CSS backup approach
+    document.body.setAttribute("data-player-size", size);
+
+    // Apply size to all iframes immediately via JavaScript
     applyPlayerSizeToAll();
 
     console.log("[MovieShows] Player size:", size);
@@ -76,28 +79,50 @@
       if (src.includes("youtube")) {
         applyStyleToElement(iframe, config);
 
-        // Also style parent containers up the chain
+        // Walk up the DOM tree and style ALL parent containers
         let parent = iframe.parentElement;
-        for (let i = 0; i < 6 && parent; i++) {
+        for (let i = 0; i < 10 && parent; i++) {
           const className = parent.className || "";
+
+          // Target the main player container classes we found in the compiled code
           if (
-            className.includes("relative") ||
-            className.includes("player") ||
-            className.includes("aspect") ||
-            (className.includes("w-full") && className.includes("h-full"))
+            className.includes("relative") &&
+            (className.includes("w-full") ||
+              className.includes("bg-black") ||
+              className.includes("shadow"))
           ) {
             applyStyleToElement(parent, config);
           }
+
+          // Also catch any container with h-full that wraps the iframe
+          if (className.includes("h-full") || className.includes("h-screen")) {
+            applyStyleToElement(parent, config);
+          }
+
           parent = parent.parentElement;
         }
+      }
+    });
+
+    // Also directly target the player container by its distinctive class pattern
+    const playerContainers = document.querySelectorAll(
+      '[class*="relative"][class*="w-full"][class*="bg-black"]',
+    );
+    playerContainers.forEach((container) => {
+      // Only apply to containers that likely hold the video
+      if (
+        container.querySelector("iframe") ||
+        container.className.includes("shadow")
+      ) {
+        applyStyleToElement(container, config);
       }
     });
   }
 
   function applyStyleToElement(el, config) {
-    el.style.height = config.height;
-    el.style.minHeight = config.minHeight;
-    el.style.maxHeight = config.maxHeight;
+    el.style.setProperty("height", config.height, "important");
+    el.style.setProperty("min-height", config.minHeight, "important");
+    el.style.setProperty("max-height", config.maxHeight, "important");
     el.style.transition = "height 0.3s ease";
   }
 
@@ -145,6 +170,35 @@
         background: #22c55e;
         border-color: #22c55e;
         color: black;
+      }
+
+      /* CSS-based player sizing as backup - data attribute approach */
+      body[data-player-size="small"] iframe[src*="youtube"],
+      body[data-player-size="small"] [class*="relative"][class*="bg-black"] {
+        height: 30vh !important;
+        min-height: 200px !important;
+        max-height: 280px !important;
+      }
+
+      body[data-player-size="medium"] iframe[src*="youtube"],
+      body[data-player-size="medium"] [class*="relative"][class*="bg-black"] {
+        height: 45vh !important;
+        min-height: 320px !important;
+        max-height: 420px !important;
+      }
+
+      body[data-player-size="large"] iframe[src*="youtube"],
+      body[data-player-size="large"] [class*="relative"][class*="bg-black"] {
+        height: 60vh !important;
+        min-height: 450px !important;
+        max-height: 550px !important;
+      }
+
+      body[data-player-size="full"] iframe[src*="youtube"],
+      body[data-player-size="full"] [class*="relative"][class*="bg-black"] {
+        height: 80vh !important;
+        min-height: 550px !important;
+        max-height: 90vh !important;
       }
 
       /* Ensure info section is visible */
