@@ -1,147 +1,115 @@
-// TikTok-style scroll navigation for MovieShows
+// TikTok-style scroll navigation fix for MovieShows
+// This fixes the broken scroll functionality in the React app
 (function () {
   "use strict";
 
-  let isScrolling = false;
-  let scrollTimeout;
+  let initialized = false;
+  let scrollContainer = null;
+  let videoSlides = [];
   let currentIndex = 0;
-  const SCROLL_COOLDOWN = 600; // ms between scrolls
+  let isScrolling = false;
+  let scrollTimeout = null;
+  const SCROLL_COOLDOWN = 400;
 
-  // Wait for the React app to fully render video items
-  function waitForVideos() {
-    return new Promise((resolve) => {
-      let attempts = 0;
-      const check = () => {
-        attempts++;
-        const items = findVideoItems();
-        if (items.length > 0) {
-          console.log(
-            "[MovieShows] Found",
-            items.length,
-            "video items after",
-            attempts,
-            "attempts",
-          );
-          resolve(items);
-        } else if (attempts < 60) {
-          setTimeout(check, 500);
-        } else {
-          console.log("[MovieShows] Timeout waiting for videos");
-          resolve([]);
-        }
-      };
-      check();
-    });
+  // Find the main scroll container with snap-y
+  function findScrollContainer() {
+    // The container has: overflow-y-scroll snap-y snap-proximity
+    const containers = document.querySelectorAll(
+      '[class*="overflow-y-scroll"]',
+    );
+    for (const container of containers) {
+      if (container.className.includes("snap-y")) {
+        return container;
+      }
+    }
+    // Fallback: look for the container with snap-center children
+    const snapCenterEl = document.querySelector('[class*="snap-center"]');
+    if (snapCenterEl && snapCenterEl.parentElement) {
+      return snapCenterEl.parentElement;
+    }
+    return null;
   }
 
-  function findVideoItems() {
-    // The app has video cards in a scrollable sidebar/list
-    // Look for poster image containers that are clickable
-    let items = [];
+  // Find all video slides (snap-center elements)
+  function findVideoSlides() {
+    if (!scrollContainer) return [];
+    return Array.from(
+      scrollContainer.querySelectorAll('[class*="snap-center"]'),
+    );
+  }
 
-    // Try finding poster images with cursor-pointer
-    const posters = document.querySelectorAll('img[src*="tmdb.org"]');
-    posters.forEach((img) => {
-      // Walk up to find the clickable container
-      let el = img.parentElement;
-      for (let i = 0; i < 5 && el; i++) {
-        if (
-          el.className &&
-          (el.className.includes("cursor-pointer") ||
-            el.className.includes("group") ||
-            el.onclick !== null)
-        ) {
-          if (!items.includes(el)) {
-            items.push(el);
-          }
-          break;
-        }
-        el = el.parentElement;
+  // Get the currently visible slide based on scroll position
+  function getCurrentVisibleIndex() {
+    if (!scrollContainer || videoSlides.length === 0) return 0;
+
+    const containerRect = scrollContainer.getBoundingClientRect();
+    const containerCenter = containerRect.top + containerRect.height / 2;
+
+    let closestIndex = 0;
+    let closestDistance = Infinity;
+
+    videoSlides.forEach((slide, index) => {
+      const rect = slide.getBoundingClientRect();
+      const slideCenter = rect.top + rect.height / 2;
+      const distance = Math.abs(slideCenter - containerCenter);
+
+      if (distance < closestDistance) {
+        closestDistance = distance;
+        closestIndex = index;
       }
     });
 
-    // If that didn't work, try other selectors
-    if (items.length === 0) {
-      items = Array.from(
-        document.querySelectorAll(
-          '[class*="cursor-pointer"][class*="relative"][class*="overflow-hidden"]',
-        ),
+    return closestIndex;
+  }
+
+  // Scroll to a specific slide
+  function scrollToSlide(index) {
+    if (index < 0 || index >= videoSlides.length) return;
+
+    const slide = videoSlides[index];
+    if (slide) {
+      slide.scrollIntoView({ behavior: "smooth", block: "center" });
+      currentIndex = index;
+      console.log(
+        "[MovieShows] Scrolled to video",
+        index + 1,
+        "of",
+        videoSlides.length,
       );
     }
-
-    if (items.length === 0) {
-      items = Array.from(document.querySelectorAll('[class*="snap-center"]'));
-    }
-
-    // Filter to unique items and those that look like video cards
-    const seen = new Set();
-    items = items.filter((el) => {
-      const key = el.innerHTML?.substring(0, 100);
-      if (seen.has(key)) return false;
-      seen.add(key);
-      // Check if it has an image (poster)
-      return el.querySelector("img") || el.tagName === "IMG";
-    });
-
-    return items;
   }
 
-  function getCurrentIndex(items) {
-    // Find the currently active/selected item by checking for visual indicators
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      const classes = item.className || "";
-      // Check for ring/border which indicates selection
-      if (
-        classes.includes("ring-2") ||
-        classes.includes("ring-cyan") ||
-        classes.includes("border-cyan") ||
-        classes.includes("scale-105") ||
-        classes.includes("border-2")
-      ) {
-        return i;
-      }
+  // Handle scroll events on the container
+  function handleScroll() {
+    if (isScrolling) return;
+
+    const newIndex = getCurrentVisibleIndex();
+    if (newIndex !== currentIndex) {
+      currentIndex = newIndex;
+      // The scroll-snap already handles the visual snap
+      // We just track the current index
     }
-    return currentIndex;
   }
 
-  function selectVideo(items, index) {
-    if (index < 0 || index >= items.length) return false;
-
-    const item = items[index];
-    if (item) {
-      currentIndex = index;
-
-      // Scroll the item into view in its container
-      item.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-
-      // Simulate a click to select the video
-      const clickEvent = new MouseEvent("click", {
-        bubbles: true,
-        cancelable: true,
-        view: window,
-      });
-      item.dispatchEvent(clickEvent);
-
-      console.log("[MovieShows] Selected video", index + 1, "of", items.length);
-      return true;
-    }
-    return false;
-  }
-
+  // Handle wheel events for controlled scrolling
   function handleWheel(e) {
-    // Don't intercept if inside a scrollable container that needs it
+    // Only handle if we're on the main container area
     const target = e.target;
+
+    // Don't intercept scrolling in nested scrollable areas
     if (
-      target.closest(
-        '.overflow-y-auto, .overflow-x-auto, [class*="custom-scrollbar"]',
-      )
+      target.closest('.overflow-y-auto:not([class*="snap-y"])') ||
+      target.closest('[class*="custom-scrollbar"]') ||
+      target.closest("select")
     ) {
       return;
+    }
+
+    // Check if we're in the scroll container or its children
+    if (!scrollContainer?.contains(target) && target !== scrollContainer) {
+      // If not in scroll container, check if scrolling should go to it
+      const containerRect = scrollContainer?.getBoundingClientRect();
+      if (!containerRect) return;
     }
 
     if (isScrolling) {
@@ -149,23 +117,19 @@
       return;
     }
 
-    // Only trigger on significant scroll
-    if (Math.abs(e.deltaY) < 20) return;
+    // Determine scroll direction
+    if (Math.abs(e.deltaY) < 10) return;
 
-    const items = findVideoItems();
-    if (items.length === 0) return;
-
-    const current = getCurrentIndex(items);
     const direction = e.deltaY > 0 ? 1 : -1;
     const newIndex = Math.max(
       0,
-      Math.min(items.length - 1, current + direction),
+      Math.min(videoSlides.length - 1, currentIndex + direction),
     );
 
-    if (newIndex !== current) {
+    if (newIndex !== currentIndex) {
       e.preventDefault();
       isScrolling = true;
-      selectVideo(items, newIndex);
+      scrollToSlide(newIndex);
 
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
@@ -174,43 +138,58 @@
     }
   }
 
+  // Handle keyboard navigation
   function handleKeydown(e) {
-    // Skip if user is typing in an input
+    // Skip if typing in input
     if (
       e.target.tagName === "INPUT" ||
       e.target.tagName === "TEXTAREA" ||
       e.target.tagName === "SELECT"
-    )
+    ) {
       return;
+    }
 
     if (isScrolling) return;
 
     let direction = 0;
-    if (e.key === "ArrowDown" || e.key === "j" || e.key === "J") {
-      direction = 1;
-    } else if (e.key === "ArrowUp" || e.key === "k" || e.key === "K") {
-      direction = -1;
-    } else if (e.key === "ArrowRight") {
-      direction = 1;
-    } else if (e.key === "ArrowLeft") {
-      direction = -1;
+    switch (e.key) {
+      case "ArrowDown":
+      case "j":
+      case "J":
+      case "ArrowRight":
+        direction = 1;
+        break;
+      case "ArrowUp":
+      case "k":
+      case "K":
+      case "ArrowLeft":
+        direction = -1;
+        break;
+      case "Home":
+        if (videoSlides.length > 0) {
+          e.preventDefault();
+          scrollToSlide(0);
+        }
+        return;
+      case "End":
+        if (videoSlides.length > 0) {
+          e.preventDefault();
+          scrollToSlide(videoSlides.length - 1);
+        }
+        return;
     }
 
     if (direction === 0) return;
 
-    const items = findVideoItems();
-    if (items.length === 0) return;
-
-    const current = getCurrentIndex(items);
     const newIndex = Math.max(
       0,
-      Math.min(items.length - 1, current + direction),
+      Math.min(videoSlides.length - 1, currentIndex + direction),
     );
 
-    if (newIndex !== current) {
+    if (newIndex !== currentIndex) {
       e.preventDefault();
       isScrolling = true;
-      selectVideo(items, newIndex);
+      scrollToSlide(newIndex);
 
       clearTimeout(scrollTimeout);
       scrollTimeout = setTimeout(() => {
@@ -219,7 +198,7 @@
     }
   }
 
-  // Touch swipe support
+  // Touch handling
   let touchStartY = 0;
   let touchStartX = 0;
   let touchStartTime = 0;
@@ -235,28 +214,24 @@
 
     const touchEndY = e.changedTouches[0].clientY;
     const touchEndX = e.changedTouches[0].clientX;
-    const touchDuration = Date.now() - touchStartTime;
     const deltaY = touchStartY - touchEndY;
     const deltaX = touchStartX - touchEndX;
+    const duration = Date.now() - touchStartTime;
 
-    // Quick swipe detection (vertical or horizontal)
+    // Quick swipe detection
     const isVerticalSwipe = Math.abs(deltaY) > Math.abs(deltaX);
     const delta = isVerticalSwipe ? deltaY : deltaX;
 
-    if (touchDuration < 400 && Math.abs(delta) > 50) {
-      const items = findVideoItems();
-      if (items.length === 0) return;
-
-      const current = getCurrentIndex(items);
+    if (duration < 300 && Math.abs(delta) > 80) {
       const direction = delta > 0 ? 1 : -1;
       const newIndex = Math.max(
         0,
-        Math.min(items.length - 1, current + direction),
+        Math.min(videoSlides.length - 1, currentIndex + direction),
       );
 
-      if (newIndex !== current) {
+      if (newIndex !== currentIndex) {
         isScrolling = true;
-        selectVideo(items, newIndex);
+        scrollToSlide(newIndex);
 
         clearTimeout(scrollTimeout);
         scrollTimeout = setTimeout(() => {
@@ -266,25 +241,57 @@
     }
   }
 
-  async function init() {
-    console.log("[MovieShows] Initializing scroll navigation...");
+  // Use IntersectionObserver to track which video is visible
+  function setupIntersectionObserver() {
+    if (!scrollContainer || videoSlides.length === 0) return;
 
-    const items = await waitForVideos();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
+            const index = videoSlides.indexOf(entry.target);
+            if (index !== -1 && index !== currentIndex) {
+              currentIndex = index;
+              console.log("[MovieShows] Video", index + 1, "now in view");
+            }
+          }
+        });
+      },
+      {
+        root: scrollContainer,
+        threshold: 0.5,
+      },
+    );
 
-    if (items.length === 0) {
-      console.log("[MovieShows] No video items found, retrying in 2s...");
-      setTimeout(init, 2000);
+    videoSlides.forEach((slide) => observer.observe(slide));
+
+    return observer;
+  }
+
+  // Initialize everything
+  function init() {
+    if (initialized) return;
+
+    console.log("[MovieShows] Looking for scroll container...");
+
+    scrollContainer = findScrollContainer();
+    if (!scrollContainer) {
+      console.log("[MovieShows] Scroll container not found, retrying...");
+      setTimeout(init, 1000);
       return;
     }
 
-    // Auto-select the first video on load if none is selected
-    setTimeout(() => {
-      const current = getCurrentIndex(items);
-      if (current === 0) {
-        console.log("[MovieShows] Auto-selecting first video...");
-        selectVideo(items, 0);
-      }
-    }, 1000);
+    videoSlides = findVideoSlides();
+    if (videoSlides.length === 0) {
+      console.log("[MovieShows] No video slides found, retrying...");
+      setTimeout(init, 1000);
+      return;
+    }
+
+    console.log("[MovieShows] Found", videoSlides.length, "videos");
+
+    // Set up intersection observer
+    setupIntersectionObserver();
 
     // Add event listeners
     document.addEventListener("wheel", handleWheel, { passive: false });
@@ -294,17 +301,59 @@
     });
     document.addEventListener("touchend", handleTouchEnd, { passive: true });
 
+    // Track scroll on the container
+    scrollContainer.addEventListener("scroll", handleScroll, { passive: true });
+
+    // Get initial position
+    currentIndex = getCurrentVisibleIndex();
+
+    // Auto-scroll to first video if at top
+    if (currentIndex === 0 && videoSlides.length > 0) {
+      setTimeout(() => {
+        const firstSlide = videoSlides[0];
+        if (firstSlide) {
+          // Make sure first video is fully in view
+          firstSlide.scrollIntoView({ behavior: "auto", block: "center" });
+        }
+      }, 500);
+    }
+
+    initialized = true;
     console.log("[MovieShows] Scroll navigation ready!");
     console.log(
-      "[MovieShows] Controls: Mouse wheel, Arrow keys, J/K, or swipe",
+      "[MovieShows] Use: Mouse wheel, Arrow keys, J/K, Home/End, or swipe",
     );
   }
 
-  // Start when DOM is ready
+  // Watch for DOM changes (React updates)
+  function setupMutationObserver() {
+    const observer = new MutationObserver(() => {
+      if (!initialized) {
+        init();
+      } else {
+        // Update slides list if DOM changed
+        const newSlides = findVideoSlides();
+        if (newSlides.length !== videoSlides.length) {
+          videoSlides = newSlides;
+          setupIntersectionObserver();
+        }
+      }
+    });
+
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  // Start
   if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", init);
+    document.addEventListener("DOMContentLoaded", () => {
+      setupMutationObserver();
+      setTimeout(init, 1500);
+    });
   } else {
-    // Small delay to let React hydrate
-    setTimeout(init, 1000);
+    setupMutationObserver();
+    setTimeout(init, 1500);
   }
 })();
