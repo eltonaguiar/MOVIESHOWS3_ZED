@@ -10,6 +10,9 @@
   let scrollTimeout = null;
   const SCROLL_COOLDOWN = 500;
 
+  // Poster bar visibility (hidden by default)
+  let posterBarVisible = false;
+
   // Player height in pixels (for manual adjustment)
   let customPlayerHeight = 350;
   const PLAYER_PRESETS = {
@@ -170,6 +173,83 @@
     }
   }
 
+  // ========== POSTER BAR TOGGLE ==========
+
+  function createPosterBarToggle() {
+    if (document.getElementById("poster-bar-toggle")) return;
+
+    const toggle = document.createElement("div");
+    toggle.id = "poster-bar-toggle";
+    toggle.innerHTML = `<span>▲ Shows</span>`;
+    toggle.title = "Click to show/hide the show list";
+    document.body.appendChild(toggle);
+
+    toggle.addEventListener("click", togglePosterBar);
+
+    // Load saved preference (default hidden)
+    const saved = localStorage.getItem("movieshows-poster-visible");
+    posterBarVisible = saved === "true";
+    applyPosterBarVisibility();
+  }
+
+  function togglePosterBar() {
+    posterBarVisible = !posterBarVisible;
+    localStorage.setItem("movieshows-poster-visible", posterBarVisible);
+    applyPosterBarVisibility();
+  }
+
+  function applyPosterBarVisibility() {
+    // Find the poster bar (contains overflow-x-auto and the movie posters)
+    const posterBars = document.querySelectorAll('[class*="overflow-x-auto"]');
+    posterBars.forEach((bar) => {
+      // Check if it contains poster images
+      if (
+        bar.querySelector('img[src*="tmdb"]') ||
+        bar.querySelector('[class*="aspect-"]')
+      ) {
+        if (posterBarVisible) {
+          bar.style.setProperty("transform", "translateY(0)", "important");
+          bar.style.setProperty("opacity", "1", "important");
+        } else {
+          bar.style.setProperty("transform", "translateY(100%)", "important");
+          bar.style.setProperty("opacity", "0", "important");
+        }
+        bar.style.setProperty(
+          "transition",
+          "transform 0.3s ease, opacity 0.3s ease",
+          "important",
+        );
+      }
+    });
+
+    // Also hide/show the "2026 HOT PICKS" label and related elements
+    const hotPicksLabels = document.querySelectorAll(
+      '[class*="absolute"][class*="bottom-"]',
+    );
+    hotPicksLabels.forEach((el) => {
+      if (el.textContent && el.textContent.includes("HOT PICKS")) {
+        if (posterBarVisible) {
+          el.style.setProperty("opacity", "1", "important");
+        } else {
+          el.style.setProperty("opacity", "0", "important");
+        }
+        el.style.setProperty("transition", "opacity 0.3s ease", "important");
+      }
+    });
+
+    // Update toggle button text
+    const toggle = document.getElementById("poster-bar-toggle");
+    if (toggle) {
+      toggle.innerHTML = posterBarVisible
+        ? `<span>▼ Hide Shows</span>`
+        : `<span>▲ Shows</span>`;
+      toggle.classList.toggle("active", posterBarVisible);
+    }
+
+    // Update body class for CSS
+    document.body.classList.toggle("poster-bar-hidden", !posterBarVisible);
+  }
+
   function setPlayerSize(size) {
     document.body.classList.remove(
       "player-small",
@@ -255,6 +335,42 @@
 
       #player-drag-handle:hover {
         background: linear-gradient(to bottom, rgba(34, 197, 94, 1), rgba(34, 197, 94, 0.7));
+      }
+
+      /* Poster bar toggle button */
+      #poster-bar-toggle {
+        position: fixed;
+        bottom: 10px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 9999;
+        background: rgba(0, 0, 0, 0.9);
+        color: #aaa;
+        padding: 8px 20px;
+        border-radius: 20px;
+        cursor: pointer;
+        font-size: 12px;
+        font-weight: bold;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        backdrop-filter: blur(10px);
+        transition: all 0.3s ease;
+      }
+
+      #poster-bar-toggle:hover {
+        background: rgba(34, 197, 94, 0.3);
+        border-color: rgba(34, 197, 94, 0.5);
+        color: white;
+      }
+
+      #poster-bar-toggle.active {
+        background: rgba(34, 197, 94, 0.2);
+        border-color: rgba(34, 197, 94, 0.4);
+        color: #22c55e;
+      }
+
+      /* When poster bar is hidden, move info section down */
+      .poster-bar-hidden [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
+        bottom: 60px !important;
       }
 
       #player-size-control button.active {
@@ -636,6 +752,7 @@
     injectStyles();
     createPlayerSizeControl();
     createDragHandle();
+    createPosterBarToggle();
 
     scrollContainer = findScrollContainer();
     if (!scrollContainer) {
@@ -674,6 +791,9 @@
 
     // Periodically reapply custom height for new iframes
     setInterval(applyCustomHeight, 2000);
+
+    // Periodically reapply poster bar visibility for dynamically loaded content
+    setInterval(applyPosterBarVisibility, 2000);
 
     initialized = true;
     console.log(
