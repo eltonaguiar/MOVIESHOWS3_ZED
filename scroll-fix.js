@@ -311,20 +311,17 @@
 
       /* ===== Ensure title/info section is always visible ===== */
 
-      /* The info section at bottom-left */
+      /* The info section at bottom-left - keep it positioned but add left margin */
       [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
-        position: relative !important;
-        bottom: auto !important;
-        left: auto !important;
+        left: 16px !important;
+        right: 120px !important;
         padding: 12px 16px !important;
         background: linear-gradient(to top, rgba(0,0,0,0.9), transparent) !important;
-        margin-top: -80px !important;
         z-index: 40 !important;
       }
 
       /* For Full mode - show a compact info bar */
       .player-full [class*="absolute"][class*="bottom-4"][class*="left-4"][class*="z-30"] {
-        margin-top: -60px !important;
         padding: 8px 16px !important;
       }
 
